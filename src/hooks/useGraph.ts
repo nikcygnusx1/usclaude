@@ -2,18 +2,10 @@ import { useMemo } from 'react';
 import { Node, Edge, MarkerType, Position } from 'reactflow';
 import dagre from 'dagre';
 import { ontologyGraph } from '@/data/ontology';
-import { useFilterStore } from '@/stores/useFilterStore';
-import { RegulatoryNode, Requirement } from '@/types/ontology';
-import { domains } from '@/data/domains';
+import { RegulatoryNode, Status, Requirement, Phase } from '@/types/ontology';
 
-const typeWidth: Record<RegulatoryNode['type'], number> = {
-  state: 160,
-  license: 200,
-  requirement: 200,
-  product: 200,
-  domain: 200,
-  phase: 150,
-};
+const NODE_WIDTH = 240;
+const NODE_HEIGHT = 90;
 
 function layout(
   nodes: RegulatoryNode[],
@@ -22,102 +14,127 @@ function layout(
 ) {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: direction, nodesep: 36, ranksep: 120 });
-  nodes.forEach(n => g.setNode(n.id, { width: typeWidth[n.type], height: 48 }));
+  g.setGraph({ rankdir: direction, nodesep: 36, ranksep: 140 });
+  nodes.forEach(n => g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT }));
   edges.forEach(e => g.setEdge(e.source, e.target));
   dagre.layout(g);
   return nodes.map(n => {
     const pos = g.node(n.id);
-    return { ...n, x: pos?.x ?? 0, y: pos?.y ?? 0, w: typeWidth[n.type] };
+    return { ...n, x: pos?.x ?? 0, y: pos?.y ?? 0, w: NODE_WIDTH };
   });
 }
 
-export function useGraph(layoutDirection: 'LR' | 'TB' = 'LR') {
-  const { selectedStatuses, selectedPhases, selectedDomains, searchQuery, clarityEnacted } = useFilterStore();
+// Color Palette Maps
+const statusColors: Record<Status, string> = {
+  Ready: '#10b981', // Emerald Green
+  Conditional: '#f59e0b', // Amber
+  Blocked: '#ef4444', // Crimson Red
+  'Needs verification': '#64748b', // Slate Gray
+  Deferred: '#94a3b8', // Slate Silver
+};
+
+const phaseColors: Record<Phase, string> = {
+  'Pre-launch': '#3b82f6', // Blue
+  'Phase 1': '#10b981', // Emerald
+  'Phase 2': '#8b5cf6', // Purple
+  'Phase 3': '#ec4899', // Pink
+  'Post-CLARITY': '#f59e0b', // Amber
+};
+
+const getDomainColor = (domainName: string) => {
+  if (domainName.includes('Entity')) return '#3b82f6';
+  if (domainName.includes('Federal')) return '#06b6d4';
+  if (domainName.includes('State')) return '#8b5cf6';
+  if (domainName.includes('Custody')) return '#10b981';
+  if (domainName.includes('Payments')) return '#ec4899';
+  if (domainName.includes('Asset')) return '#f59e0b';
+  if (domainName.includes('Surveillance')) return '#ef4444';
+  if (domainName.includes('Product')) return '#14b8a6';
+  return '#64748b';
+};
+
+interface UseGraphParams {
+  layoutDirection: 'LR' | 'TB';
+  colorBy: 'status' | 'phase' | 'domain';
+  activeLayers: Set<string>;
+  timelineStep: number;
+}
+
+export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep }: UseGraphParams) {
+  // Step thresholds for timeline scrubbing
+  const allowedPhases = useMemo(() => {
+    const phaseThresholds: Record<number, Phase[]> = {
+      0: ['Pre-launch'],
+      1: ['Pre-launch', 'Phase 1'],
+      2: ['Pre-launch', 'Phase 1', 'Phase 2'],
+      3: ['Pre-launch', 'Phase 1', 'Phase 2', 'Phase 3'],
+      4: ['Pre-launch', 'Phase 1', 'Phase 2', 'Phase 3', 'Post-CLARITY'],
+    };
+    return phaseThresholds[timelineStep] || phaseThresholds[4];
+  }, [timelineStep]);
+
+  // Is CLARITY preemption active for this step
+  const isClarityStepActive = timelineStep === 4;
 
   const filtered = useMemo(() => {
     let nodes = ontologyGraph.nodes;
 
-    // Filter by domain
-    if (selectedDomains.length) {
-      const keptDomainIds = new Set(selectedDomains);
-      const keptRequirementNodes = ontologyGraph.nodes.filter(n => {
-        if (n.type !== 'requirement') return false;
-        const req = n.data as Requirement;
-        const dom = domains.find(d => d.name === req.domain);
-        return dom && keptDomainIds.has(dom.id);
-      });
-      const keptRequirementIds = new Set(keptRequirementNodes.map(n => n.id));
+    // 1. Filter by Active Layers (States, Licenses, etc.)
+    nodes = nodes.filter(n => activeLayers.has(n.type));
 
-      // Keep licenses that govern kept requirements
-      const keptLicenseIds = new Set<string>();
-      ontologyGraph.edges.forEach(e => {
-        if (keptRequirementIds.has(e.target) && (e.type === 'governs' || e.type === 'enables')) {
-          keptLicenseIds.add(e.source);
-        }
-      });
-
-      // Keep states that require kept licenses
-      const keptStateIds = new Set<string>();
-      ontologyGraph.edges.forEach(e => {
-        if (keptLicenseIds.has(e.target) && e.type === 'requires') {
-          keptStateIds.add(e.source);
-        }
-      });
-
-      // Keep products that require kept requirements
-      const keptProductIds = new Set<string>();
-      ontologyGraph.edges.forEach(e => {
-        if (keptRequirementIds.has(e.target) && e.type === 'requires') {
-          keptProductIds.add(e.source);
-        }
-      });
-
-      // Keep phases triggered by kept products
-      const keptPhaseIds = new Set<string>();
-      ontologyGraph.edges.forEach(e => {
-        if (keptProductIds.has(e.source) && e.type === 'triggers') {
-          keptPhaseIds.add(e.target);
-        }
-      });
-
-      nodes = nodes.filter(n => {
-        if (n.type === 'domain') return keptDomainIds.has(n.id);
-        if (n.type === 'requirement') return keptRequirementIds.has(n.id);
-        if (n.type === 'license') return keptLicenseIds.has(n.id);
-        if (n.type === 'state') return keptStateIds.has(n.id);
-        if (n.type === 'product') return keptProductIds.has(n.id);
-        if (n.type === 'phase') return keptPhaseIds.has(n.id);
-        return false;
-      });
-    }
-
-    // Filter by status and phase
-    if (selectedStatuses.length) nodes = nodes.filter(n => selectedStatuses.includes(n.status));
-    if (selectedPhases.length) nodes = nodes.filter(n => selectedPhases.includes(n.phase));
-
-    // Filter by search query
-    if (searchQuery) nodes = nodes.filter(n => n.label.toLowerCase().includes(searchQuery.toLowerCase()));
+    // 2. Filter by Timeline Step Rollout Phase
+    nodes = nodes.filter(n => allowedPhases.includes(n.phase));
 
     const ids = new Set(nodes.map(n => n.id));
     const edges = ontologyGraph.edges.filter(e => ids.has(e.source) && ids.has(e.target));
     return { nodes, edges };
-  }, [selectedStatuses, selectedPhases, selectedDomains, searchQuery]);
+  }, [activeLayers, allowedPhases]);
 
   const laidOut = useMemo(() => layout(filtered.nodes, filtered.edges, layoutDirection), [filtered, layoutDirection]);
 
   const nodes: Node[] = laidOut.map(n => {
+    // Determine dynamic painting color based on colorBy configuration
+    let activeColor = '#64748b'; // default slate
+
+    if (colorBy === 'status') {
+      activeColor = statusColors[n.status] || '#64748b';
+    } else if (colorBy === 'phase') {
+      activeColor = phaseColors[n.phase] || '#64748b';
+    } else if (colorBy === 'domain') {
+      if (n.type === 'requirement') {
+        const req = n.data as Requirement;
+        activeColor = getDomainColor(req.domain);
+      } else if (n.type === 'license') {
+        // Group license under State MTL domain color
+        activeColor = getDomainColor('State money transmission and consumer protection');
+      } else if (n.type === 'product') {
+        // Classify product under Listing and Token Domain color
+        activeColor = getDomainColor('Asset listing and token classification');
+      } else if (n.type === 'state') {
+        activeColor = getDomainColor('State money transmission and consumer protection');
+      } else {
+        activeColor = '#64748b';
+      }
+    }
+
+    const isReq = n.type === 'requirement';
+    const req = isReq ? (n.data as Requirement) : null;
+    const isPreempted = isClarityStepActive && req?.preemptedUnderClarity;
+
     return {
       id: n.id,
-      type: 'custom', // Hooks into components/ui/CustomOntologyNode
-      position: { x: n.x - n.w / 2, y: n.y - 24 },
+      type: 'custom', // custom node component in components/ui/CustomOntologyNode.tsx
+      position: { x: n.x - NODE_WIDTH / 2, y: n.y - NODE_HEIGHT / 2 },
       data: {
         node: n,
+        activeColor,
+        isPreempted,
       },
       sourcePosition: layoutDirection === 'LR' ? Position.Right : Position.Bottom,
       targetPosition: layoutDirection === 'LR' ? Position.Left : Position.Top,
       style: {
-        width: n.w,
+        width: NODE_WIDTH,
+        height: NODE_HEIGHT,
         border: '0',
         padding: '0',
         background: 'transparent',
@@ -128,7 +145,7 @@ export function useGraph(layoutDirection: 'LR' | 'TB' = 'LR') {
   const edges: Edge[] = filtered.edges.map(e => {
     // Check if the target is a preempted requirement
     const targetNode = ontologyGraph.nodes.find(n => n.id === e.target);
-    const isPreempted = clarityEnacted && targetNode?.type === 'requirement' && (targetNode.data as Requirement).preemptedUnderClarity;
+    const isPreempted = isClarityStepActive && targetNode?.type === 'requirement' && (targetNode.data as Requirement).preemptedUnderClarity;
 
     return {
       id: e.id,
