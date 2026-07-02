@@ -1,9 +1,34 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, MapPin, ShieldCheck, Coins, Activity } from 'lucide-react';
-import { Card, CardHeader, CardBody, Badge, ReadinessMeter } from '@/components/ui';
-import { states, products, requirements, phases, readinessItems, redFlags } from '@/data';
+import { AlertTriangle, MapPin, ShieldCheck, Coins, Terminal, ShieldAlert } from 'lucide-react';
+import { Card, CardHeader, CardBody, Badge, ReadinessMeter, InspectorDrawer } from '@/components/ui';
+import { states, products, requirements, readinessItems, redFlags } from '@/data';
 import { useAuditStore } from '@/stores/useAuditStore';
 import { toBadgeStatus } from '@/lib/status';
+import { State } from '@/types/ontology';
+
+const statusDot: Record<string, string> = {
+  Ready: 'bg-status-ready border-status-ready/30 text-status-ready',
+  Conditional: 'bg-status-conditional border-status-conditional/30 text-status-conditional',
+  Blocked: 'bg-status-blocked border-status-blocked/30 text-status-blocked',
+  Deferred: 'bg-status-deferred border-status-deferred/30 text-status-deferred',
+  'Needs verification': 'bg-status-unverified border-status-unverified/30 text-status-unverified',
+};
+
+const simulatedEvents = [
+  'OFAC sanctions automated scan executed: 0 alerts matched.',
+  'TRUST Travel-Rule transaction payload validated for wallet_8213.',
+  'NYDFS BitLicense panel request: CCO submitted Delaware corporate filings.',
+  'CFIUS verification: foreign voting covenants validated under 25% threshold.',
+  'Wyoming SPDI audit: segregated customer reserve balances verified.',
+  'BSA/AML training logs updated for compliance operations team.',
+  'BitLicense review: NYDFS requested revised risk disclosure document.',
+  'Texas DOB memorandum 1037: stablecoin reserves audit completed.',
+  'California DFAL registration: CCO verified CCO employment covenant.',
+  'Intercompany licensing agreement signed between LCX AG and LCX USA.',
+  'FinCEN MSB check: federal registration number active and valid.',
+  'Howey analysis verified for listed digital commodities.',
+];
 
 function StatCard({ icon: Icon, label, value, hint }: { icon: any; label: string; value: string | number; hint?: string }) {
   return (
@@ -27,9 +52,32 @@ export function Dashboard() {
   const readyOrConditional = states.filter(s => s.status === 'Ready' || s.status === 'Conditional');
   const blockers = requirements.filter(r => r.status === 'Blocked');
   const phase1States = states.filter(s => s.phase === 'Phase 1' && s.tier !== 'Unresearched');
-  const criticalStates = states.filter(s => s.priority === 'Critical' || s.priority === 'High').slice(0, 6);
+  const criticalStates = states.filter(s => s.priority === 'Critical' || s.priority === 'High').slice(0, 5);
 
   const { resolvedRemediations } = useAuditStore();
+  const [selectedState, setSelectedState] = useState<State | null>(null);
+
+  // Live Terminal Logs State
+  const [logs, setLogs] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Populate with 5 random initial logs
+    const initial = Array.from({ length: 5 }).map(() => {
+      const idx = Math.floor(Math.random() * simulatedEvents.length);
+      const timestamp = new Date(Date.now() - Math.random() * 3600000).toLocaleTimeString();
+      return `[${timestamp}] ${simulatedEvents[idx]}`;
+    });
+    setLogs(initial.sort());
+
+    // Interval to append new logs every 4 seconds
+    const interval = setInterval(() => {
+      const idx = Math.floor(Math.random() * simulatedEvents.length);
+      const timestamp = new Date().toLocaleTimeString();
+      setLogs(prev => [`[${timestamp}] ${simulatedEvents[idx]}`, ...prev].slice(0, 15));
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const unresolvedCriticalCount = redFlags.filter(rf => {
     if (rf.risk !== 'Critical' && rf.risk !== 'High') return false;
@@ -42,50 +90,83 @@ export function Dashboard() {
   const readinessPercent = Math.round((completedReadiness / totalReadiness) * 100);
 
   return (
-    <div className="space-y-4 text-navy dark:text-ice">
-      <div>
-        <h1 className="text-2xl font-bold">LCX USA — Regulatory Launch Dashboard</h1>
-        <p className="text-sm text-grey-dark dark:text-grey-light mt-1">
-          Synthesized from the LCX USA U.S. Market Entry &amp; Regulatory Strategy research corpus (784-page multi-agent transcript).
-        </p>
+    <div className="space-y-4 text-navy dark:text-ice h-[calc(100vh-6.5rem)] flex flex-col overflow-hidden min-h-0">
+      
+      {/* Top Banner Info */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shrink-0">
+        <div>
+          <h1 className="text-2xl font-bold">Launch Control Dashboard</h1>
+          <p className="text-sm text-grey-dark dark:text-grey-light mt-0.5">
+            Operational cockpit synthesized from the 784-page U.S. regulatory strategy research.
+          </p>
+        </div>
       </div>
 
-      {/* Critical warning alerts */}
+      {/* Warning banner */}
       {unresolvedCriticalCount > 0 && (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300 font-medium flex items-center justify-between gap-3">
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-red-700 dark:text-red-300 font-medium flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={16} className="shrink-0 text-red-500" />
+            <AlertTriangle size={15} className="shrink-0 text-red-500 animate-pulse-beacon" />
             <span>
-              <strong>Critical Audit Warning</strong>: There are {unresolvedCriticalCount} unresolved Critical/High risk audit flags active. Resolve these before launching.
+              <strong>Audit Alert</strong>: There are {unresolvedCriticalCount} unresolved Critical/High risk audit flags active. Resolve these before launching.
             </span>
           </div>
           <Link to="/red-flags" className="underline font-bold shrink-0 hover:text-red-500">
-            Open Audit Log &rarr;
+            Resolve Gates &rarr;
           </Link>
         </div>
       )}
 
-      {/* Stats Summary Grid */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard icon={MapPin} label="States with research coverage" value={`${researched.length} / ${states.length}`} hint="Remaining states are unresearched, not assumed safe." />
-        <StatCard icon={ShieldCheck} label="States launchable now (Ready/Conditional)" value={readyOrConditional.length} hint="Phase 1 candidates, pending counsel sign-off." />
-        <StatCard icon={AlertTriangle} label="Blocked requirements" value={blockers.length} hint="Domain-level blockers across the ontology." />
-        <StatCard icon={Coins} label="Tracked products / assets" value={products.length} hint="Architecture options + listed-asset classifications." />
-      </div>
+      {/* Main 3-Column Cockpit Workspace */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0 overflow-hidden">
+        
+        {/* Column 1 & 2: Primary Stats, Map Heatmap & Phase lists */}
+        <div className="flex-1 flex flex-col space-y-4 min-h-0 overflow-y-auto pr-1">
+          
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 shrink-0">
+            <StatCard icon={MapPin} label="Researched jurisdictions" value={`${researched.length} / ${states.length}`} hint="Remaining states are unresearched." />
+            <StatCard icon={ShieldCheck} label="Launchable States" value={readyOrConditional.length} hint="Phase 1 states, pending counsel sign-off." />
+            <StatCard icon={AlertTriangle} label="Blocked Requirements" value={blockers.length} hint="Active domain-level blocker gates." />
+            <StatCard icon={Coins} label="Listed Products" value={products.length} hint="Tokens, custody modules, and stablecoins." />
+          </div>
 
-      {/* Main Content Layout */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Left Column: Stats & Lists */}
-        <div className="space-y-4 lg:col-span-2">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Card>
-              <CardHeader>Phase 1 Launch Candidates</CardHeader>
-              <CardBody>
-                <p className="text-xs text-grey-dark dark:text-grey-light mb-3">Zero-or-low-licensing states for a non-custodial / wallet-only launch.</p>
+          {/* 5x10 State Risk Heatmap Grid */}
+          <Card className="shrink-0">
+            <CardHeader className="text-xs uppercase tracking-wider font-extrabold text-grey">
+              Geographic Risk Heatmap Matrix (All 50 States)
+            </CardHeader>
+            <CardBody>
+              <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+                {states.map(s => {
+                  const colorClass = statusDot[s.status] || 'bg-status-unverified border-status-unverified/30 text-status-unverified';
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setSelectedState(s)}
+                      className={`flex flex-col items-center justify-center p-1 h-10 border rounded text-[10px] font-bold transition-all transform active:scale-95 ${colorClass} hover:opacity-80`}
+                      title={`${s.name} — ${s.status}`}
+                    >
+                      <span>{s.abbreviation}</span>
+                      <span className="text-[6px] tracking-tight font-normal opacity-75">{s.phase.replace('Phase ', 'P')}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Launch Phase Lists */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 flex-1">
+            <Card className="flex flex-col min-h-[200px]">
+              <CardHeader className="text-xs uppercase tracking-wider font-extrabold text-grey border-b border-line px-4 py-2 bg-ice-soft/20">
+                Phase 1 launch candidates
+              </CardHeader>
+              <CardBody className="overflow-y-auto flex-1 p-3">
                 <ul className="space-y-2">
                   {phase1States.map(s => (
-                    <li key={s.id} className="flex items-center justify-between text-sm">
-                      <Link to="/states" className="hover:underline font-medium">{s.name}</Link>
+                    <li key={s.id} className="flex items-center justify-between text-xs">
+                      <button onClick={() => setSelectedState(s)} className="hover:underline font-bold text-left">{s.name}</button>
                       <Badge status={toBadgeStatus(s.status)}>{s.status}</Badge>
                     </li>
                   ))}
@@ -93,14 +174,17 @@ export function Dashboard() {
               </CardBody>
             </Card>
 
-            <Card>
-              <CardHeader>Highest-Priority States</CardHeader>
-              <CardBody>
-                <p className="text-xs text-grey-dark dark:text-grey-light mb-3">Critical/high priority states from the licensing matrix, regardless of phase.</p>
+            <Card className="flex flex-col min-h-[200px]">
+              <CardHeader className="text-xs uppercase tracking-wider font-extrabold text-grey border-b border-line px-4 py-2 bg-ice-soft/20">
+                Highest-Priority States
+              </CardHeader>
+              <CardBody className="overflow-y-auto flex-1 p-3">
                 <ul className="space-y-2">
                   {criticalStates.map(s => (
-                    <li key={s.id} className="flex items-center justify-between text-sm">
-                      <Link to="/states" className="hover:underline font-medium">{s.name} <span className="text-grey dark:text-grey-light/60 font-mono text-[10px]">({s.tier.replace(/^Tier \d - /, '')})</span></Link>
+                    <li key={s.id} className="flex items-center justify-between text-xs">
+                      <button onClick={() => setSelectedState(s)} className="hover:underline font-bold text-left">
+                        {s.name} <span className="text-grey font-mono text-[9px]">({s.tier.replace(/^Tier \d - /, '')})</span>
+                      </button>
                       <Badge status={toBadgeStatus(s.status)}>{s.status}</Badge>
                     </li>
                   ))}
@@ -109,91 +193,128 @@ export function Dashboard() {
             </Card>
           </div>
 
-          {/* Key Blockers List */}
-          <Card>
-            <CardHeader>Key Blocker Requirements</CardHeader>
-            <CardBody>
-              <ul className="space-y-3">
-                {blockers.map(r => (
-                  <li key={r.id} className="border-l-2 border-status-blocked pl-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm">{r.name}</span>
-                      <Badge status={toBadgeStatus(r.status)}>{r.phase}</Badge>
-                    </div>
-                    <p className="text-xs text-grey-dark dark:text-grey-light mt-1">{r.description}</p>
-                  </li>
-                ))}
-              </ul>
-            </CardBody>
-          </Card>
         </div>
 
-        {/* Right Column: CFIUS & Operational Readiness */}
-        <div className="space-y-4">
-          {/* CFIUS Corporate Setup Panel */}
-          <Card status="blocked">
-            <CardHeader className="flex items-center gap-2 text-status-blocked border-b border-line px-4 py-3 font-semibold bg-red-50/50 dark:bg-red-950/10">
-              <AlertTriangle size={18} className="text-status-blocked" /> CFIUS Gating — Foreign Parent (LCX AG)
+        {/* Column 3: Live Event Console & Circular Readiness Beacon */}
+        <div className="w-full lg:w-80 shrink-0 flex flex-col space-y-4 min-h-0 overflow-y-auto pl-1">
+          
+          {/* Circular SVG Readiness Beacon */}
+          <Card className="shrink-0">
+            <CardHeader className="text-xs uppercase tracking-wider font-extrabold text-grey text-center">
+              Compliance Readiness Beacon
             </CardHeader>
-            <CardBody className="space-y-2 text-xs">
-              <p>
-                <strong>CFIUS Trigger</strong>: Foreign ownership/control exceeding <strong>25% voting rights</strong> in LCX USA by Liechtenstein parent (LCX AG) triggers voluntary national security filing.
-              </p>
-              <p>
-                <strong>Mitigation Strategy</strong>: Draft passive investor covenants restricting voting power to &lt; 10%, preventing U.S. board seats, and blocking access to non-public tech specs.
-              </p>
-              <div className="flex justify-between items-center pt-2 border-t border-line mt-2 text-xs">
-                <span className="font-semibold text-status-blocked uppercase tracking-wider text-[10px]">Gated / High Risk</span>
-                <Link to="/howey" className="text-navy dark:text-ice hover:underline font-medium">Verify structure &rarr;</Link>
-              </div>
-            </CardBody>
-          </Card>
-
-          {/* Compliance Readiness Summary Progress */}
-          <Card>
-            <CardHeader className="flex items-center justify-between border-b border-line px-4 py-3 font-semibold">
-              <span>Compliance Readiness</span>
-              <Activity size={18} className="text-navy dark:text-ice" />
-            </CardHeader>
-            <CardBody className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1.5">
-                  <span>Completed Controls</span>
-                  <span className="font-mono">{readinessPercent}% ({completedReadiness} / {totalReadiness})</span>
+            <CardBody className="flex flex-col items-center justify-center py-4 space-y-3">
+              <div className="relative flex items-center justify-center h-32 w-32">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--line)" strokeWidth="6" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    fill="transparent"
+                    stroke="#06b6d4" // Cyan glow loader
+                    strokeWidth="6"
+                    strokeDasharray={`${2 * Math.PI * 40}`}
+                    strokeDashoffset={`${2 * Math.PI * 40 * (1 - readinessPercent / 100)}`}
+                    strokeLinecap="round"
+                    className="transition-all duration-700 ease-out"
+                    style={{
+                      filter: 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.4))'
+                    }}
+                  />
+                </svg>
+                <div className="absolute flex flex-col items-center justify-center font-mono">
+                  <span className="text-3xl font-extrabold text-navy dark:text-ice">{readinessPercent}%</span>
+                  <span className="text-[8px] text-grey uppercase tracking-wider font-bold">Readiness</span>
                 </div>
-                <ReadinessMeter percent={readinessPercent} />
               </div>
-              <p className="text-xs text-grey-dark dark:text-grey-light">
-                Covers U.S. incorporation, intercompany licensing agreements, U.S. Terms of Service drafting, CCO hiring, and TRUST/OFAC monitoring.
-              </p>
-              <div className="pt-2 border-t border-line">
-                <Link to="/readiness" className="text-xs text-navy dark:text-ice font-semibold hover:underline block">
-                  Open Readiness Checklist &rarr;
-                </Link>
-              </div>
+              <ReadinessMeter percent={readinessPercent} className="px-4" />
+              <Link to="/readiness" className="text-[10px] text-grey hover:underline uppercase font-bold tracking-wider font-mono">
+                Open Readiness Controls &rarr;
+              </Link>
             </CardBody>
           </Card>
+
+          {/* CFIUS Security Panel */}
+          <Card className="shrink-0" status="blocked">
+            <CardHeader className="text-xs uppercase tracking-wider font-extrabold text-status-blocked flex items-center gap-1.5 border-b border-line px-4 py-2 bg-red-50/50 dark:bg-red-950/10">
+              <ShieldAlert size={14} /> CFIUS FOREIGN PARENT GATING
+            </CardHeader>
+            <CardBody className="text-[10px] leading-relaxed space-y-1">
+              <p>
+                Liechtenstein parent (LCX AG) exceeds <strong>25% voting control</strong>, triggering mandatory filing.
+              </p>
+              <p>
+                <strong>Mitigation</strong>: Passive covenants limiting voting power &lt; 10% and blocking access to non-public technical data.
+              </p>
+            </CardBody>
+          </Card>
+
+          {/* Real-Time Live Event Log Terminal */}
+          <div className="flex-1 flex flex-col bg-slate-950 text-slate-100 rounded-lg border border-slate-800 shadow-md font-mono text-[10px] overflow-hidden min-h-[220px]">
+            {/* Console Header */}
+            <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center justify-between shrink-0 select-none">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-cyan-500 shrink-0 animate-pulse-beacon" />
+                <span className="uppercase text-[9px] font-bold text-cyan-400">Live Operation Feed</span>
+              </div>
+              <Terminal size={12} className="text-slate-500" />
+            </div>
+
+            {/* Console Log Lines */}
+            <div className="flex-1 p-3 overflow-y-auto space-y-2 leading-relaxed flex flex-col-reverse justify-end select-text">
+              <div className="flex items-center gap-1.5 text-cyan-400 font-bold shrink-0">
+                <span>&gt; SYSTEM ACTIVE</span>
+                <span className="h-3 w-1.5 bg-cyan-400 animate-pulse-beacon block shrink-0" />
+              </div>
+              {logs.map((log, index) => (
+                <div key={index} className="text-slate-300 break-words font-mono text-[9px]">
+                  {log}
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
+
       </div>
 
-      {/* Rollout Phases Overview */}
-      <Card>
-        <CardHeader>Rollout Phases</CardHeader>
-        <CardBody>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {phases.map(p => (
-              <div key={p.id} className="rounded-md border border-line p-3 bg-card">
-                <div className="font-bold text-sm">{p.name}</div>
-                <p className="text-xs text-grey-dark dark:text-grey-light mt-1">{p.description}</p>
-              </div>
-            ))}
-          </div>
-        </CardBody>
-      </Card>
+      {/* Slide-out State Inspector drawer */}
+      <InspectorDrawer isOpen={!!selectedState} onClose={() => setSelectedState(null)} title={selectedState?.name ?? ''}>
+        {selectedState && (
+          <div className="space-y-3 text-xs leading-relaxed text-navy dark:text-ice">
+            <div className="flex flex-wrap gap-1.5">
+              <Badge status={toBadgeStatus(selectedState.status)}>{selectedState.status}</Badge>
+              <span className="rounded-full border border-line px-2 py-0.5 uppercase tracking-wider text-[10px] font-mono">{selectedState.phase}</span>
+              <span className="rounded-full border border-line px-2 py-0.5 uppercase tracking-wider text-[10px] font-mono">{selectedState.tier}</span>
+            </div>
 
-      <p className="text-xs text-grey">
-        This dashboard reflects research findings, not legal advice. Every "Ready" or "Conditional" status still requires counsel confirmation before launch.
-      </p>
+            <div className="space-y-2 border-b border-line pb-3">
+              <p><span className="font-semibold text-grey block uppercase text-[9px]">Regime Type</span> {selectedState.regimeType}</p>
+              <p><span className="font-semibold text-grey block uppercase text-[9px]">Launch Priority</span> {selectedState.priority}</p>
+              {selectedState.regulator && <p><span className="font-semibold text-grey block uppercase text-[9px]">Portal Portal</span> {selectedState.regulator}</p>}
+            </div>
+
+            <div className="space-y-2 border-b border-line pb-3">
+              {selectedState.minNetWorth && <p><span className="font-semibold text-grey block uppercase text-[9px]">Minimum Corporate Net Worth</span> <span className="font-mono">{selectedState.minNetWorth}</span></p>}
+              {selectedState.suretyBond && <p><span className="font-semibold text-grey block uppercase text-[9px]">Surety Bond Collateral</span> <span className="font-mono">{selectedState.suretyBond}</span></p>}
+              {selectedState.sandboxAvailable !== undefined && (
+                <p><span className="font-semibold text-grey block uppercase text-[9px]">Regulatory Sandbox</span> {selectedState.sandboxAvailable ? 'Exemption Available' : 'None'}</p>
+              )}
+              {selectedState.sandboxNotes && <p className="italic text-grey-dark pl-2 border-l border-line">"{selectedState.sandboxNotes}"</p>}
+              {selectedState.tier !== 'Unresearched' && (
+                <p><span className="font-semibold text-grey block uppercase text-[9px]">NMLS Registration</span> {selectedState.nmlsRequired ? 'Required (Apply via NMLS)' : 'Not Used / Exempt'}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {selectedState.estCost && <p><span className="font-semibold text-grey block uppercase text-[9px]">Estimated Fees</span> <span className="font-mono">{selectedState.estCost}</span></p>}
+              {selectedState.estTimeline && <p><span className="font-semibold text-grey block uppercase text-[9px]">Estimated Pipeline Duration</span> <span className="font-mono">{selectedState.estTimeline}</span></p>}
+              <p><span className="font-semibold text-grey block uppercase text-[9px]">Operational Notes</span> {selectedState.notes}</p>
+            </div>
+          </div>
+        )}
+      </InspectorDrawer>
     </div>
   );
 }

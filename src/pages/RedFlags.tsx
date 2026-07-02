@@ -1,12 +1,43 @@
+import { useState, useMemo } from 'react';
 import { redFlags } from '@/data';
 import { useAuditStore } from '@/stores/useAuditStore';
 import { Card, CardBody, Badge, ReadinessMeter } from '@/components/ui';
-import { AlertTriangle, ShieldCheck, CheckSquare, Square } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, CheckSquare, Square, RefreshCw, Scale } from 'lucide-react';
+import { clsx } from 'clsx';
+
+interface RiskCoord {
+  rfId: string;
+  prob: number; // 1 to 5
+  sev: number; // 1 to 5
+}
+
+const RISK_COORDINATES: RiskCoord[] = [
+  { rfId: 'rf-cfius', prob: 4, sev: 5 }, // Entity registration gaps / foreign control
+  { rfId: 'rf-mica-drift', prob: 3, sev: 4 }, // MiCA alignment conflations
+  { rfId: 'rf-spdi-custody', prob: 2, sev: 5 }, // Custody control points
+  { rfId: 'rf-staking-securities', prob: 5, sev: 4 }, // Staking self-listings
+  { rfId: 'rf-corp-delay', prob: 3, sev: 3 }, // Corporate structures setup delays
+  { rfId: 'rf-nmls-wave', prob: 2, sev: 4 }, // Multi-state timeline gaps
+  { rfId: 'rf-travel-rule', prob: 4, sev: 3 }, // Travel-rule automated screening
+  { rfId: 'rf-exemption-rules', prob: 3, sev: 2 }, // Exemption definitions
+];
+
+// Helper to determine cell background in a 5x5 grid
+const getMatrixCellColor = (prob: number, sev: number) => {
+  const sum = prob + sev;
+  if (sum >= 8) return 'bg-red-500/20 hover:bg-red-500/30 text-red-500 border-red-500/30';
+  if (sum >= 6) return 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 border-amber-500/30';
+  return 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-500 border-emerald-500/30';
+};
 
 export function RedFlags() {
-  const { resolvedRemediations, toggleRemediation } = useAuditStore();
+  const { resolvedRemediations, toggleRemediation, addAuditLog } = useAuditStore();
 
-  // Calculate global stats
+  // Grid filter states
+  const [selectedCell, setSelectedCell] = useState<{ prob: number; sev: number } | null>(null);
+  const [evidenceNotes, setEvidenceNotes] = useState<Record<string, string>>({});
+
+  // Calculations
   const totalRemediations = redFlags.reduce((acc, rf) => acc + rf.remediations.length, 0);
   const completedRemediationsCount = redFlags.reduce((acc, rf) => {
     return acc + rf.remediations.filter(r => resolvedRemediations.includes(r.id)).length;
@@ -14,137 +45,263 @@ export function RedFlags() {
 
   const mitigationPercent = totalRemediations > 0 ? Math.round((completedRemediationsCount / totalRemediations) * 100) : 0;
 
-  // Count unresolved critical/high flags (a flag is unresolved if any of its remediations are unchecked)
   const unresolvedCriticalCount = redFlags.filter(rf => {
     if (rf.risk !== 'Critical' && rf.risk !== 'High') return false;
     return rf.remediations.some(r => !resolvedRemediations.includes(r.id));
   }).length;
 
+  const handleGridCellClick = (prob: number, sev: number) => {
+    if (selectedCell?.prob === prob && selectedCell?.sev === sev) {
+      setSelectedCell(null);
+      addAuditLog('CCO cleared risk matrix cell filter.', 'System');
+    } else {
+      setSelectedCell({ prob, sev });
+      addAuditLog(`CCO filtered risk matrix by Probability [${prob}] and Severity [${sev}].`, 'Scenario');
+    }
+  };
+
+  const handleResolveRemediation = (remediationId: string) => {
+    toggleRemediation(remediationId);
+  };
+
+  const handleSaveEvidence = (rfId: string) => {
+    const text = evidenceNotes[rfId] || '';
+    if (!text) return;
+    addAuditLog(`CCO submitted remediation audit evidence for Red Flag [${rfId}]: "${text}"`, 'Audit');
+  };
+
+  // Filter red flags list based on risk cell selection
+  const filteredFlags = useMemo(() => {
+    if (!selectedCell) return redFlags;
+    
+    // Find red flag ids matching cell coordinates
+    const ids = RISK_COORDINATES.filter(c => c.prob === selectedCell.prob && c.sev === selectedCell.sev).map(c => c.rfId);
+    return redFlags.filter(rf => ids.includes(rf.id));
+  }, [selectedCell]);
+
   return (
-    <div className="space-y-4 text-navy dark:text-ice">
+    <div className="space-y-4 text-navy dark:text-ice h-[calc(100vh-6.5rem)] flex flex-col overflow-hidden min-h-0">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Red Flags &amp; Audit Log</h1>
-        <p className="text-sm text-grey-dark mt-1">
-          Track and resolve critical legal contradictions, entity registration gaps, and regulatory friction points identified in the market entry corpus.
-        </p>
+      <div className="shrink-0 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Scale size={24} className="text-navy dark:text-ice" /> Audit Risk Mitigation Center</h1>
+          <p className="text-sm text-grey-dark dark:text-grey-light mt-0.5">
+            Model, analyze, and resolve legal friction coordinates using the 2D Probability vs. Impact matrix.
+          </p>
+        </div>
+        
+        {/* Reset Grid trigger */}
+        {selectedCell && (
+          <button
+            onClick={() => setSelectedCell(null)}
+            className="flex items-center gap-1 h-8 rounded border border-line bg-card hover:bg-ice-soft dark:hover:bg-ice-soft/10 px-3 text-xs font-semibold text-grey-dark transition-colors shrink-0"
+          >
+            <RefreshCw size={11} />
+            <span>Reset Matrix Filter</span>
+          </button>
+        )}
       </div>
 
-      {/* Audit Stats Panel */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card>
-          <CardBody className="flex items-center gap-3">
-            <div className="rounded-md bg-red-100 dark:bg-red-950/20 p-2 text-red-600 dark:text-red-400">
-              <AlertTriangle size={20} />
-            </div>
-            <div>
-              <div className="text-2xl font-bold font-mono">{unresolvedCriticalCount}</div>
-              <div className="text-xs text-grey-dark dark:text-grey-light mt-0.5">Active Critical/High Risks</div>
-            </div>
-          </CardBody>
-        </Card>
+      {/* Main split work dashboard */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0 overflow-hidden">
+        
+        {/* Left Side: 2D 5x5 RAG Risk Matrix Grid */}
+        <div className="w-full lg:w-80 bg-card border border-line rounded-lg p-4 flex flex-col space-y-4 shrink-0 shadow-sm">
+          <span className="font-bold text-[10px] uppercase tracking-wider text-grey block text-center">
+            2D Risk Coordinate Matrix (Probability vs Severity)
+          </span>
 
-        <Card>
-          <CardBody className="flex items-center gap-3">
-            <div className="rounded-md bg-green-100 dark:bg-green-950/20 p-2 text-green-600 dark:text-green-400">
-              <ShieldCheck size={20} />
-            </div>
-            <div>
-              <div className="text-2xl font-bold font-mono">{completedRemediationsCount} / {totalRemediations}</div>
-              <div className="text-xs text-grey-dark dark:text-grey-light mt-0.5">Remediation Gates Cleared</div>
-            </div>
-          </CardBody>
-        </Card>
+          <div className="flex-1 flex flex-col justify-between h-[250px] relative select-none">
+            {/* Grid rows (Y: Probability 5 down to 1) */}
+            <div className="flex-1 flex flex-col justify-between border-l border-b border-line pl-1 pb-1 relative">
+              {Array.from({ length: 5 }).map((_, rIdx) => {
+                const prob = 5 - rIdx;
+                return (
+                  <div key={prob} className="flex-1 flex justify-between items-center w-full">
+                    {/* Grid columns (X: Severity 1 to 5) */}
+                    {Array.from({ length: 5 }).map((_, cIdx) => {
+                      const sev = cIdx + 1;
+                      
+                      // Count flags in this cell
+                      const cellFlagsCount = RISK_COORDINATES.filter(c => c.prob === prob && c.sev === sev).length;
+                      const cellColor = getMatrixCellColor(prob, sev);
+                      const isSelected = selectedCell?.prob === prob && selectedCell?.sev === sev;
 
-        <Card>
-          <CardBody className="space-y-2">
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <span>Overall Audit Mitigation</span>
-              <span className="font-mono">{mitigationPercent}%</span>
-            </div>
-            <ReadinessMeter percent={mitigationPercent} />
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Red Flags List */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {redFlags.map(rf => {
-          const completedCount = rf.remediations.filter(r => resolvedRemediations.includes(r.id)).length;
-          const totalCount = rf.remediations.length;
-          const isResolved = completedCount === totalCount;
-
-          return (
-            <Card
-              key={rf.id}
-              className={`border transition-all duration-300 ${
-                isResolved
-                  ? 'border-status-ready/20 bg-status-ready-bg/5 dark:bg-status-ready-bg/2'
-                  : rf.risk === 'Critical'
-                  ? 'border-red-500/20 hover:border-red-500/40'
-                  : 'border-amber-500/20 hover:border-amber-500/40'
-              }`}
-            >
-              <CardBody className="space-y-3">
-                {/* Title & Badge */}
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-bold text-sm leading-snug">{rf.title}</h3>
-                  <Badge
-                    status={
-                      isResolved ? 'ready' : rf.risk === 'Critical' ? 'blocked' : 'conditional'
-                    }
-                  >
-                    {isResolved ? 'Resolved' : rf.risk}
-                  </Badge>
-                </div>
-
-                {/* Description */}
-                <p className="text-xs text-grey-dark dark:text-grey-light leading-normal">{rf.description}</p>
-
-                {/* Consequences Warning block */}
-                {!isResolved && (
-                  <div className="rounded bg-red-50 dark:bg-red-950/15 border border-red-100/50 dark:border-red-950/30 p-2.5 text-xs font-mono text-red-700 dark:text-red-300 leading-normal">
-                    <span className="font-extrabold uppercase text-[9px] block mb-0.5">[Consequences of Inaction]</span>
-                    {rf.consequences}
-                  </div>
-                )}
-
-                {/* Remediation Checklist */}
-                <div className="pt-2 border-t border-line space-y-2">
-                  <div className="flex justify-between items-center text-[10px] uppercase font-bold text-grey">
-                    <span>Remediation Checklist</span>
-                    <span className="font-mono">{completedCount} of {totalCount} done</span>
-                  </div>
-
-                  <div className="space-y-1.5 pt-1">
-                    {rf.remediations.map(r => {
-                      const active = resolvedRemediations.includes(r.id);
                       return (
                         <button
-                          key={r.id}
-                          onClick={() => toggleRemediation(r.id)}
-                          className="flex items-start gap-2 w-full text-left text-xs p-1.5 rounded hover:bg-ice-soft dark:hover:bg-ice-soft/10 transition-colors"
+                          key={sev}
+                          onClick={() => handleGridCellClick(prob, sev)}
+                          className={clsx(
+                            'flex-1 h-full border m-0.5 rounded transition-all flex items-center justify-center font-mono text-[10px] font-bold',
+                            cellColor,
+                            isSelected ? 'ring-2 ring-cyan-500/60 scale-105 border-cyan-500 shadow-sm' : ''
+                          )}
+                          title={`Prob: ${prob}, Sev: ${sev} (${cellFlagsCount} flags)`}
                         >
-                          <span className="mt-0.5 shrink-0 text-grey hover:text-navy dark:hover:text-ice">
-                            {active ? (
-                              <CheckSquare size={14} className="text-navy dark:text-ice" />
-                            ) : (
-                              <Square size={14} />
-                            )}
-                          </span>
-                          <span className={active ? 'line-through text-grey dark:text-grey-light/50' : 'font-medium'}>
-                            {r.label}
-                          </span>
+                          {cellFlagsCount > 0 ? cellFlagsCount : ''}
                         </button>
                       );
                     })}
                   </div>
+                );
+              })}
+            </div>
+            {/* Axes Labels */}
+            <div className="flex justify-between text-[8px] font-bold text-grey uppercase font-mono mt-1 px-1">
+              <span>Impact 1 (Low)</span>
+              <span>Impact 5 (Critical)</span>
+            </div>
+          </div>
+          
+          <div className="text-[10px] text-grey leading-relaxed space-y-1 pt-2 border-t border-line">
+            <p className="font-bold">Matrix filtering guidelines:</p>
+            <p>Click any cell to isolate red flags matching that coordinate. Click again to clear.</p>
+          </div>
+        </div>
+
+        {/* Right Side: Red Flags lists with Evidence Input logs */}
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
+          
+          {/* Stats Bar */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 shrink-0">
+            <Card>
+              <CardBody className="p-3 flex items-center gap-3">
+                <div className="rounded bg-red-100 dark:bg-red-950/20 p-2 text-red-600 dark:text-red-400">
+                  <AlertTriangle size={18} />
+                </div>
+                <div>
+                  <div className="text-xl font-bold font-mono leading-tight">{unresolvedCriticalCount}</div>
+                  <div className="text-[10px] text-grey uppercase font-bold mt-0.5">Active Critical Risks</div>
                 </div>
               </CardBody>
             </Card>
-          );
-        })}
+            <Card>
+              <CardBody className="p-3 flex items-center gap-3">
+                <div className="rounded bg-emerald-100 dark:bg-emerald-950/20 p-2 text-emerald-600 dark:text-emerald-400">
+                  <ShieldCheck size={18} />
+                </div>
+                <div>
+                  <div className="text-xl font-bold font-mono leading-tight">{completedRemediationsCount} / {totalRemediations}</div>
+                  <div className="text-[10px] text-grey uppercase font-bold mt-0.5">Controls Cleared</div>
+                </div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody className="p-3 space-y-1">
+                <div className="flex justify-between items-center text-[10px] uppercase font-bold text-grey">
+                  <span>Overall Mitigation</span>
+                  <span className="font-mono">{mitigationPercent}%</span>
+                </div>
+                <ReadinessMeter percent={mitigationPercent} />
+              </CardBody>
+            </Card>
+          </div>
+
+          {/* Cards List */}
+          <div className="space-y-4">
+            {filteredFlags.map(rf => {
+              const completedCount = rf.remediations.filter(r => resolvedRemediations.includes(r.id)).length;
+              const totalCount = rf.remediations.length;
+              const isResolved = completedCount === totalCount;
+              const coords = RISK_COORDINATES.find(c => c.rfId === rf.id) || { prob: 3, sev: 3 };
+
+              return (
+                <Card
+                  key={rf.id}
+                  className={clsx(
+                    'border transition-all duration-300',
+                    isResolved
+                      ? 'border-status-ready/20 bg-status-ready-bg/5'
+                      : rf.risk === 'Critical'
+                      ? 'border-red-500/20 hover:border-red-500/40'
+                      : 'border-amber-500/20 hover:border-amber-500/40'
+                  )}
+                >
+                  <CardBody className="space-y-3.5">
+                    {/* Header: Title and rating */}
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <h3 className="font-bold text-sm leading-snug">{rf.title}</h3>
+                        <div className="text-[8px] font-mono text-grey uppercase tracking-wider mt-0.5">
+                          Coordinate: Prob {coords.prob} / Sev {coords.sev} · Risk: {rf.risk}
+                        </div>
+                      </div>
+                      <Badge status={isResolved ? 'ready' : rf.risk === 'Critical' ? 'blocked' : 'conditional'}>
+                        {isResolved ? 'Resolved' : rf.risk}
+                      </Badge>
+                    </div>
+
+                    <p className="text-xs text-grey-dark dark:text-grey-light leading-relaxed">{rf.description}</p>
+
+                    {/* Consequences Warnings box */}
+                    {!isResolved && (
+                      <div className="rounded bg-red-50 dark:bg-red-950/15 border border-red-100/50 dark:border-red-950/30 p-2.5 text-xs font-mono text-red-700 dark:text-red-300 leading-normal">
+                        <span className="font-extrabold uppercase text-[9px] block mb-0.5">[Consequences of Inaction]</span>
+                        {rf.consequences}
+                      </div>
+                    )}
+
+                    {/* Checklists */}
+                    <div className="space-y-2 pt-2.5 border-t border-line">
+                      <div className="flex justify-between items-center text-[10px] uppercase font-bold text-grey">
+                        <span>Mitigation Controls Checklist</span>
+                        <span className="font-mono">{completedCount} of {totalCount} done</span>
+                      </div>
+                      
+                      <div className="space-y-1.5 pt-1 pl-1">
+                        {rf.remediations.map(r => {
+                          const active = resolvedRemediations.includes(r.id);
+                          return (
+                            <button
+                              key={r.id}
+                              onClick={() => handleResolveRemediation(r.id)}
+                              className="flex items-start gap-2.5 w-full text-left text-xs p-1 rounded hover:bg-ice-soft dark:hover:bg-ice-soft/10 transition-colors font-semibold"
+                            >
+                              <span className="mt-0.5 shrink-0 text-grey hover:text-navy dark:hover:text-ice">
+                                {active ? (
+                                  <CheckSquare size={14} className="text-navy dark:text-ice" />
+                                ) : (
+                                  <Square size={14} />
+                                )}
+                              </span>
+                              <span className={active ? 'line-through text-grey' : ''}>{r.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Evidence Log Textarea */}
+                    <div className="space-y-1.5 pt-2.5 border-t border-line/60">
+                      <label className="font-bold text-[9px] uppercase tracking-wider text-grey block">Remediation Reference Evidence</label>
+                      <div className="flex gap-2">
+                        <textarea
+                          rows={1}
+                          value={evidenceNotes[rf.id] || ''}
+                          onChange={e => setEvidenceNotes(prev => ({ ...prev, [rf.id]: e.target.value }))}
+                          placeholder="Input counsel legal citations, bylaws sections, or verification hashes..."
+                          className="flex-1 rounded border border-line bg-ice-soft dark:bg-navy-deep p-2 text-xs focus:outline-none placeholder-grey/50 font-mono"
+                        />
+                        <button
+                          onClick={() => handleSaveEvidence(rf.id)}
+                          disabled={!evidenceNotes[rf.id]}
+                          className="h-8 rounded bg-navy dark:bg-ice text-white dark:text-navy px-3 text-xs font-bold transition-opacity hover:opacity-95 disabled:opacity-30 shrink-0"
+                        >
+                          Submit Evidence
+                        </button>
+                      </div>
+                    </div>
+
+                  </CardBody>
+                </Card>
+              );
+            })}
+          </div>
+
+        </div>
+
       </div>
     </div>
   );
 }
+export default RedFlags;

@@ -1,165 +1,233 @@
 import { useState, useMemo } from 'react';
-import { products, requirements, domains } from '@/data';
-import { Badge, InspectorDrawer } from '@/components/ui';
+import { useNavigate } from 'react-router-dom';
+import { Badge } from '@/components/ui';
+import { products } from '@/data';
+import { useAuditStore } from '@/stores/useAuditStore';
 import { toBadgeStatus } from '@/lib/status';
-import { Product } from '@/types/ontology';
-import { useFilterStore } from '@/stores/useFilterStore';
+import { Coins, ChevronDown, ChevronUp, Copy, Check, ExternalLink } from 'lucide-react';
+import { clsx } from 'clsx';
 
 export function ProductMatrix() {
-  const [selected, setSelected] = useState<Product | null>(null);
-  const { selectedStatuses, selectedPhases, selectedDomains, searchQuery } = useFilterStore();
+  const navigate = useNavigate();
+  const { addAuditLog } = useAuditStore();
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [copySuccess, setCopySuccess] = useState<boolean>(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      // 1. Filter by status
-      if (selectedStatuses.length && !selectedStatuses.includes(p.status)) return false;
-      
-      // 2. Filter by phase
-      if (selectedPhases.length && !selectedPhases.includes(p.phase)) return false;
-      
-      // 3. Filter by search query (on name or description)
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesName = p.name.toLowerCase().includes(query);
-        const matchesDesc = p.description.toLowerCase().includes(query);
-        if (!matchesName && !matchesDesc) return false;
-      }
-      
-      // 4. Filter by domain (matches if any of the product's requirements fall under selected domains)
-      if (selectedDomains.length) {
-        const productHasMatchingDomain = p.requirements.some(rid => {
-          const req = requirements.find(r => r.id === rid);
-          if (!req) return false;
-          const dom = domains.find(d => d.name === req.domain);
-          return dom && selectedDomains.includes(dom.id);
-        });
-        if (!productHasMatchingDomain) return false;
-      }
-      
-      return true;
+      return categoryFilter === 'all' || p.category === categoryFilter;
     });
-  }, [selectedStatuses, selectedPhases, selectedDomains, searchQuery]);
+  }, [categoryFilter]);
+
+  const toggleRow = (id: string) => {
+    setExpandedRows(prev => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+    addAuditLog(`CCO toggled registry details for product: [${id}]`, 'Audit');
+  };
+
+  const handleExportYAML = () => {
+    // Generate clean YAML structure
+    const yamlLines = filteredProducts.map(p => {
+      return `- id: ${p.id}
+  name: "${p.name}"
+  category: ${p.category}
+  status: "${p.status}"
+  phase: "${p.phase}"
+  howeyScore: ${p.howeyScore !== undefined ? p.howeyScore : 'null'}
+  requirementsCount: ${p.requirements.length}
+  risksCount: ${p.risks.length}`;
+    }).join('\n');
+
+    const yamlPayload = `# LCX USA OS — Product & Asset Registry Ledger\n# Generated: ${new Date().toLocaleString()}\n---\n${yamlLines}`;
+    
+    navigator.clipboard.writeText(yamlPayload);
+    setCopySuccess(true);
+    addAuditLog('CCO exported asset registry ledger as YAML payload to clipboard.', 'System');
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
+
+  const handleLinkToOntology = (id: string) => {
+    addAuditLog(`CCO redirected to Ontology focusing on: [${id}]`, 'Audit');
+    // Navigate with state payload
+    navigate('/ontology', { state: { selectedNodeId: id } });
+  };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Product Matrix</h1>
-        <p className="text-sm text-grey-dark mt-1">Architecture options and listed assets, mapped to the requirements that gate each one.</p>
+    <div className="space-y-4 text-navy dark:text-ice h-[calc(100vh-6.5rem)] flex flex-col overflow-hidden min-h-0">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shrink-0">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Coins size={24} className="text-navy dark:text-ice" /> Product &amp; Asset Registry Ledger
+          </h1>
+          <p className="text-sm text-grey-dark dark:text-grey-light mt-0.5">
+            Verify securities classification scores and active compliance requirement mappings for products.
+          </p>
+        </div>
+
+        {/* Copy YAML trigger */}
+        <button
+          onClick={handleExportYAML}
+          className="flex items-center gap-1.5 h-9 rounded border border-line bg-card hover:bg-ice-soft dark:hover:bg-ice-soft/10 px-3.5 text-xs font-semibold shadow-sm text-navy dark:text-ice transition-colors shrink-0"
+        >
+          {copySuccess ? (
+            <>
+              <Check size={14} className="text-status-ready" />
+              <span>Copied YAML!</span>
+            </>
+          ) : (
+            <>
+              <Copy size={14} />
+              <span>Export Ledger (YAML)</span>
+            </>
+          )}
+        </button>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-line bg-card">
-        <table className="w-full text-sm text-navy dark:text-ice">
+      {/* Category Toolbar Filter */}
+      <div className="flex gap-2 border-b border-line pb-2.5 shrink-0 overflow-x-auto">
+        {['all', 'Exchange', 'Custody', 'Fiat', 'Stablecoin', 'Token'].map(cat => (
+          <button
+            key={cat}
+            onClick={() => setCategoryFilter(cat)}
+            className={clsx(
+              'px-3 py-1 rounded text-xs font-semibold border transition-all',
+              categoryFilter === cat
+                ? 'bg-navy border-navy text-white dark:bg-ice dark:border-ice dark:text-navy'
+                : 'border-line bg-card text-grey-dark hover:bg-ice-soft dark:hover:bg-ice-soft/10'
+            )}
+          >
+            {cat === 'all' ? 'All Registry Categories' : cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Registry Table List Grid */}
+      <div className="flex-1 bg-card border border-line rounded-lg overflow-y-auto shadow-sm min-h-0">
+        <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="border-b border-line bg-ice-soft dark:bg-ice-soft/10 text-left">
-              <th className="px-3 py-2 font-semibold">Product / Asset</th>
-              <th className="px-3 py-2 font-semibold">Category</th>
-              <th className="px-3 py-2 font-semibold">Howey Score</th>
-              <th className="px-3 py-2 font-semibold">Status</th>
-              <th className="px-3 py-2 font-semibold">Phase</th>
-              <th className="px-3 py-2 font-semibold">Requirements</th>
+            <tr className="bg-ice-soft/40 dark:bg-navy-deep/20 border-b border-line text-[10px] uppercase font-bold text-grey select-none">
+              <th className="py-2.5 px-4 w-8"></th>
+              <th className="py-2.5 px-3">Product / Asset</th>
+              <th className="py-2.5 px-3">Category</th>
+              <th className="py-2.5 px-3">Milestone Phase</th>
+              <th className="py-2.5 px-3">Securities Howey Score</th>
+              <th className="py-2.5 px-3">Rules Gated</th>
+              <th className="py-2.5 px-3">Status</th>
             </tr>
           </thead>
-          <tbody>
-            {filteredProducts.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-grey-dark">No products match the selected filters.</td>
-              </tr>
-            ) : (
-              filteredProducts.map(p => (
-                <tr key={p.id} className="border-b border-line last:border-0 hover:bg-ice-soft/60 cursor-pointer" onClick={() => setSelected(p)}>
-                  <td className="px-3 py-2 font-medium">{p.name}</td>
-                  <td className="px-3 py-2">{p.category}</td>
-                  <td className="px-3 py-2">
-                    {p.howeyScore !== undefined ? (
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-mono ${
-                        p.howeyScore >= 70 ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
-                        p.howeyScore >= 40 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300' :
-                        'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
-                      }`}>
-                        {p.howeyScore}%
+          <tbody className="divide-y divide-line">
+            {filteredProducts.map(p => {
+              const isExpanded = !!expandedRows[p.id];
+              return (
+                <optgroup key={p.id} label={p.name} className="contents">
+                  <tr
+                    onClick={() => toggleRow(p.id)}
+                    className={clsx(
+                      'hover:bg-ice-soft/30 dark:hover:bg-ice-soft/5 cursor-pointer transition-colors',
+                      isExpanded && 'bg-ice-soft/20 dark:bg-ice-soft/2'
+                    )}
+                  >
+                    <td className="py-3 px-4 text-center text-grey">
+                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </td>
+                    <td className="py-3 px-3 font-bold font-mono text-navy dark:text-ice">{p.name}</td>
+                    <td className="py-3 px-3">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-line bg-ice-soft/30 dark:bg-ice-soft/10 text-grey-dark">
+                        {p.category}
                       </span>
-                    ) : 'N/A'}
-                  </td>
-                  <td className="px-3 py-2"><Badge status={toBadgeStatus(p.status)}>{p.status}</Badge></td>
-                  <td className="px-3 py-2 font-mono text-xs">{p.phase}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {p.requirements.map(rid => {
-                        const req = requirements.find(r => r.id === rid);
-                        return req ? (
-                          <span key={rid} className="text-xs rounded-full border border-line px-2 py-0.5">{req.name}</span>
-                        ) : null;
-                      })}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
+                    </td>
+                    <td className="py-3 px-3 font-mono">{p.phase}</td>
+                    <td className="py-3 px-3">
+                      {p.howeyScore !== undefined ? (
+                        <div className="flex items-center gap-2 max-w-[120px]">
+                          <div className="flex-1 h-1.5 bg-line rounded overflow-hidden">
+                            <div
+                              className={clsx(
+                                'h-full rounded transition-all',
+                                p.howeyScore >= 70
+                                  ? 'bg-status-blocked'
+                                  : p.howeyScore >= 40
+                                  ? 'bg-status-conditional'
+                                  : 'bg-status-ready'
+                              )}
+                              style={{ width: `${p.howeyScore}%` }}
+                            />
+                          </div>
+                          <span className="font-mono font-bold text-[10px] w-8 shrink-0">{p.howeyScore}%</span>
+                        </div>
+                      ) : (
+                        <span className="text-grey font-mono">N/A</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 font-mono font-bold">{p.requirements.length} requirements</td>
+                    <td className="py-3 px-3">
+                      <Badge status={toBadgeStatus(p.status)}>{p.status}</Badge>
+                    </td>
+                  </tr>
+
+                  {/* Expanded Row Drawer */}
+                  {isExpanded && (
+                    <tr className="bg-ice-soft/10 dark:bg-navy-deep/5">
+                      <td colSpan={7} className="p-4 border-t border-line">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed">
+                          {/* Column 1: Details */}
+                          <div className="space-y-3">
+                            <div>
+                              <span className="font-bold text-[10px] uppercase text-grey block">Description</span>
+                              <p className="mt-0.5 text-grey-dark dark:text-grey-light">{p.description}</p>
+                            </div>
+
+                            {p.howeyAnalysis && (
+                              <div className="bg-card border border-line rounded p-3 space-y-1.5 font-mono text-[10px]">
+                                <span className="font-bold text-[10px] uppercase text-grey font-sans block mb-1">Pronged Howey Sec Analysis</span>
+                                <p><strong>1. Capital Investment:</strong> {p.howeyAnalysis.investmentOfMoney}</p>
+                                <p><strong>2. Common Venture:</strong> {p.howeyAnalysis.commonEnterprise}</p>
+                                <p><strong>3. Profit Projection:</strong> {p.howeyAnalysis.profitExpectation}</p>
+                                <p><strong>4. Promoting Labors:</strong> {p.howeyAnalysis.effortsOfOthers}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Column 2: Risks & Actions */}
+                          <div className="space-y-3 flex flex-col justify-between">
+                            <div>
+                              <span className="font-bold text-[10px] uppercase text-grey block">Gated Compliance Friction Points</span>
+                              {p.risks.length > 0 ? (
+                                <ul className="list-disc list-inside mt-1 space-y-1 text-grey-dark dark:text-grey-light pl-1.5">
+                                  {p.risks.map((risk, idx) => (
+                                    <li key={idx}>{risk}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="mt-1 text-status-ready font-semibold flex items-center gap-1">No active compliance blocks detected.</p>
+                              )}
+                            </div>
+
+                            <div className="pt-4 border-t border-line/60 mt-auto flex items-center gap-3">
+                              <button
+                                onClick={() => handleLinkToOntology(p.id)}
+                                className="flex items-center gap-1.5 text-xs font-bold text-navy hover:text-grey dark:text-ice dark:hover:text-grey underline transition-colors"
+                              >
+                                <ExternalLink size={13} />
+                                <span>Inspect Registry connections on Ontology Graph</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </optgroup>
+              );
+            })}
           </tbody>
         </table>
       </div>
-
-      <InspectorDrawer isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ''}>
-        {selected && (
-          <div className="space-y-3 text-sm text-navy dark:text-ice leading-relaxed">
-            <div className="flex flex-wrap gap-2">
-              <Badge status={toBadgeStatus(selected.status)}>{selected.status}</Badge>
-              <span className="text-xs rounded-full border border-line px-2 py-0.5">{selected.category}</span>
-              <span className="text-xs rounded-full border border-line px-2 py-0.5">{selected.phase}</span>
-            </div>
-            <p>{selected.description}</p>
-            {selected.risks.length > 0 && (
-              <div>
-                <p className="font-semibold text-xs text-grey uppercase tracking-wider mb-1">Identified Risks</p>
-                <ul className="list-disc list-inside text-xs text-grey-dark dark:text-grey-light space-y-1.5">
-                  {selected.risks.map((r, i) => <li key={i}>{r}</li>)}
-                </ul>
-              </div>
-            )}
-
-            {/* Howey Prong Details */}
-            {selected.howeyScore !== undefined && (
-              <div className="pt-2 border-t border-line mt-2 space-y-2">
-                <p className="font-semibold flex items-center gap-2">
-                  <span className="text-xs text-grey uppercase tracking-wider">Howey Securities Score</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold font-mono ${
-                    selected.howeyScore >= 70 ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
-                    selected.howeyScore >= 40 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300' :
-                    'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
-                  }`}>{selected.howeyScore}%</span>
-                </p>
-                {selected.howeyAnalysis && (
-                  <div className="bg-ice-soft dark:bg-ice-soft/10 rounded p-2.5 text-xs space-y-2 border border-line">
-                    <p><strong>1. Investment of Money:</strong> {selected.howeyAnalysis.investmentOfMoney}</p>
-                    <p><strong>2. Common Enterprise:</strong> {selected.howeyAnalysis.commonEnterprise}</p>
-                    <p><strong>3. Profit Expectation:</strong> {selected.howeyAnalysis.profitExpectation}</p>
-                    <p><strong>4. Efforts of Others:</strong> {selected.howeyAnalysis.effortsOfOthers}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Technical YAML registry payload */}
-            <div className="pt-2 border-t border-line mt-3">
-              <details className="group cursor-pointer">
-                <summary className="text-[10px] font-bold uppercase tracking-wider text-grey select-none list-none flex items-center gap-1.5">
-                  <span className="transition-transform group-open:rotate-90">&rarr;</span>
-                  <span>[Technical Registry Payload]</span>
-                </summary>
-                <pre className="mt-2 p-2.5 rounded bg-ice-soft dark:bg-navy-deep text-[10px] font-mono overflow-x-auto text-navy dark:text-ice border border-line leading-normal">
-{`product_registry:
-  id: "${selected.id}"
-  category: "${selected.category}"
-  phase: "${selected.phase}"
-  howey_securities_risk: "${selected.howeyScore}%"
-  required_gates: ${JSON.stringify(selected.requirements)}
-  risks_count: ${selected.risks.length}`}
-                </pre>
-              </details>
-            </div>
-          </div>
-        )}
-      </InspectorDrawer>
     </div>
   );
 }
+export default ProductMatrix;

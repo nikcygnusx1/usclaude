@@ -1,226 +1,264 @@
-import { useState } from 'react';
-import { Card, CardHeader, CardBody } from '@/components/ui';
-import { Calendar, Info, Clock, AlertCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { useAuditStore } from '@/stores/useAuditStore';
+import { CalendarRange, Network } from 'lucide-react';
+import { clsx } from 'clsx';
 
-interface TimelineItem {
+interface Milestone {
   id: string;
-  track: string;
   name: string;
+  phase: string;
   startMonth: number;
   duration: number; // in months
-  status: 'Complete' | 'In Progress' | 'Planned';
-  description: string;
-  dependencies: string[];
-  unlocks: string[];
-  color: string;
+  row: number; // track row offset
+  dependencies: string[]; // parent ids
+  gatedItems: string[]; // child ids
+  notes: string;
 }
 
-const timelineData: TimelineItem[] = [
-  // Track 1: Corporate & Structuring
+const LAUNCH_MILESTONES: Milestone[] = [
   {
-    id: 'corp_de', track: 'Corporate Setup', name: 'Delaware C-Corp Filing', startMonth: 1, duration: 2, status: 'Complete',
-    description: 'Establish LCX USA Inc. as the primary U.S. legal entity.',
-    dependencies: [], unlocks: ['FinCEN MSB registration'], color: 'bg-green-500/20 text-green-700 border-green-500/30'
+    id: 'corp-setup',
+    name: '1. Delaware Entity & CCO hiring',
+    phase: 'Pre-launch',
+    startMonth: 1,
+    duration: 3,
+    row: 1,
+    dependencies: [],
+    gatedItems: ['fincen-reg', 'trust-integ'],
+    notes: 'Incorporate Delaware C-Corp and execute CCO employment agreement.',
   },
   {
-    id: 'corp_cco', track: 'Corporate Setup', name: 'U.S.-Resident CCO Hiring', startMonth: 1, duration: 3, status: 'In Progress',
-    description: 'Recruit and hire a Chief Compliance Officer physically based in the U.S., a hard gate for MSB and state licensing.',
-    dependencies: [], unlocks: ['State MTL submissions', 'FinCEN BSA Program approval'], color: 'bg-amber-500/20 text-amber-700 border-amber-500/30'
+    id: 'fincen-reg',
+    name: '2. FinCEN MSB & Bank Escrow contracts',
+    phase: 'Pre-launch',
+    startMonth: 3,
+    duration: 4,
+    row: 2,
+    dependencies: ['corp-setup'],
+    gatedItems: ['mt-mtl', 'wy-spdi'],
+    notes: 'Register as federal MSB and execute escrow account contracts with banking partners.',
   },
   {
-    id: 'corp_cfius', track: 'Corporate Setup', name: 'CFIUS Voluntary Filing', startMonth: 3, duration: 4, status: 'Planned',
-    description: 'Submit and clear CFIUS review for foreign control (>25% voting rights by parent LCX AG) of U.S. critical infrastructure.',
-    dependencies: ['Delaware C-Corp Filing'], unlocks: ['Phase 3 Custodial Exchange'], color: 'bg-blue-500/20 text-blue-700 border-blue-500/30'
-  },
-  // Track 2: Core Documents
-  {
-    id: 'doc_tos', track: 'Core Documents', name: 'U.S. ToS & Privacy Drafting', startMonth: 1, duration: 3, status: 'In Progress',
-    description: 'Draft U.S.-specific terms of service including class-action waivers and mandatory arbitration covenants, and CCPA/GLBA privacy rules.',
-    dependencies: [], unlocks: ['Phase 1 Non-custodial testing'], color: 'bg-amber-500/20 text-amber-700 border-amber-500/30'
-  },
-  {
-    id: 'doc_risk', track: 'Core Documents', name: 'Consumer Disclosures Memo', startMonth: 2, duration: 2, status: 'In Progress',
-    description: 'Complete state-mandated consumer risk disclosures (specifically for NY/TX stablecoin/crypto rules).',
-    dependencies: [], unlocks: ['Token Listing opinons'], color: 'bg-amber-500/20 text-amber-700 border-amber-500/30'
-  },
-  // Track 3: Surveillance Stack
-  {
-    id: 'surv_ofac', track: 'Surveillance Stack', name: 'OFAC Real-Time Screening API', startMonth: 2, duration: 3, status: 'In Progress',
-    description: 'Integrate transaction-blocking software to block OFAC SDNs lists in real-time.',
-    dependencies: ['Delaware C-Corp Filing'], unlocks: ['Federal MSB Baseline'], color: 'bg-amber-500/20 text-amber-700 border-amber-500/30'
+    id: 'trust-integ',
+    name: '3. TRUST Travel-Rule engineering audits',
+    phase: 'Phase 1',
+    startMonth: 4,
+    duration: 4,
+    row: 3,
+    dependencies: ['corp-setup'],
+    gatedItems: ['mt-mtl'],
+    notes: 'Engineering team integrates TRUST protocol and clears OFAC transaction monitoring logs.',
   },
   {
-    id: 'surv_travel', track: 'Surveillance Stack', name: 'TRUST Travel Rule Integration', startMonth: 4, duration: 4, status: 'Planned',
-    description: 'Integrate securely with the TRUST (Travel Rule Universal Safe Harbor) node network to transmit transactions >= $3,000.',
-    dependencies: ['OFAC Real-Time Screening API'], unlocks: ['Phase 2 Custodial launch'], color: 'bg-blue-500/20 text-blue-700 border-blue-500/30'
-  },
-  // Track 4: Phase 1 States
-  {
-    id: 'p1_states', track: 'Phase 1 States', name: 'Non-Custodial Launch (CO, MT, UT, NH, NV)', startMonth: 5, duration: 4, status: 'Planned',
-    description: 'Launch non-custodial wallet and API spot commodity platform in Phase 1 states. No state MTL required.',
-    dependencies: ['U.S. ToS & Privacy Drafting', 'OFAC Real-Time Screening API'], unlocks: ['U.S. Market Entry traction'], color: 'bg-blue-500/20 text-blue-700 border-blue-500/30'
-  },
-  // Track 5: Phase 2 States
-  {
-    id: 'p2_states', track: 'Phase 2 States', name: 'Fiat Ramps & Custody (IL, PA, WA)', startMonth: 9, duration: 6, status: 'Planned',
-    description: 'Obtain state money transmitter licenses and launch custodial fiat on/off ramps.',
-    dependencies: ['U.S.-Resident CCO Hiring', 'TRUST Travel Rule Integration'], unlocks: ['Phase 2 Custodial trading'], color: 'bg-blue-500/20 text-blue-700 border-blue-500/30'
+    id: 'mt-mtl',
+    name: '4. Montana MTL exemption submission',
+    phase: 'Phase 1',
+    startMonth: 7,
+    duration: 3,
+    row: 1,
+    dependencies: ['fincen-reg', 'trust-integ'],
+    gatedItems: ['mtl-wave-1'],
+    notes: 'Submit non-custodial wallet declaration to Montana Division of Banking.',
   },
   {
-    id: 'p2_wy_spdi', track: 'Phase 2 States', name: 'Wyoming SPDI Bank Charter', startMonth: 8, duration: 8, status: 'Planned',
-    description: 'Apply for and stand up a Special Purpose Depository Institution (SPDI) trust bank charter in Wyoming to provide qualified custody.',
-    dependencies: ['Delaware C-Corp Filing', 'U.S.-Resident CCO Hiring'], unlocks: ['Omnibus Qualified Custody'], color: 'bg-blue-500/20 text-blue-700 border-blue-500/30'
+    id: 'wy-spdi',
+    name: '5. Wyoming SPDI charter submission',
+    phase: 'Phase 2',
+    startMonth: 8,
+    duration: 6,
+    row: 2,
+    dependencies: ['fincen-reg'],
+    gatedItems: ['custodial-launch'],
+    notes: 'Submit trust charter application for special purpose depository banking operations.',
   },
-  // Track 6: Phase 3 States
   {
-    id: 'p3_states', track: 'Phase 3 States', name: 'Full Retail Exchange (NY, CA, FL, MA)', startMonth: 15, duration: 9, status: 'Planned',
-    description: 'Obtain NYDFS BitLicense, CA DFAL registration, and FL MTL to support a full-service omnibus custodial exchange.',
-    dependencies: ['CFIUS Voluntary Filing', 'Wyoming SPDI Bank Charter', 'p2_states'], unlocks: ['Nationwide U.S. exchange coverage'], color: 'bg-blue-500/20 text-blue-700 border-blue-500/30'
-  }
+    id: 'mtl-wave-1',
+    name: '6. State Money Transmitter applications (Wave 1)',
+    phase: 'Phase 2',
+    startMonth: 10,
+    duration: 6,
+    row: 3,
+    dependencies: ['mt-mtl'],
+    gatedItems: ['ny-bitlicense'],
+    notes: 'Submit NMLS applications for Texas, Illinois, Pennsylvania, and Florida.',
+  },
+  {
+    id: 'custodial-launch',
+    name: '7. Custodial fiat exchange launch',
+    phase: 'Phase 3',
+    startMonth: 15,
+    duration: 5,
+    row: 1,
+    dependencies: ['wy-spdi', 'mtl-wave-1'],
+    gatedItems: [],
+    notes: 'Clear beta trading and open exchange operations using Wyoming trust custody clearing.',
+  },
+  {
+    id: 'ny-bitlicense',
+    name: '8. New York BitLicense review audits',
+    phase: 'Phase 3',
+    startMonth: 17,
+    duration: 8,
+    row: 2,
+    dependencies: ['mtl-wave-1'],
+    gatedItems: [],
+    notes: 'Execute DFS forensic compliance examination audits for retail license approval.',
+  },
 ];
 
 export function Roadmap() {
-  const [selectedTask, setSelectedTask] = useState<TimelineItem | null>(timelineData[1]);
+  const { addAuditLog } = useAuditStore();
+  const [hoveredMilestoneId, setHoveredMilestoneId] = useState<string | null>(null);
+
+  // Compute dependency highlights
+  const highlightedIds = useMemo(() => {
+    if (!hoveredMilestoneId) return new Set<string>();
+
+    const target = LAUNCH_MILESTONES.find(m => m.id === hoveredMilestoneId);
+    if (!target) return new Set<string>();
+
+    // Highlight target itself, its parents, and its children
+    return new Set<string>([
+      hoveredMilestoneId,
+      ...target.dependencies,
+      ...target.gatedItems,
+    ]);
+  }, [hoveredMilestoneId]);
+
+  const handleMilestoneHover = (id: string | null) => {
+    setHoveredMilestoneId(id);
+    if (id) {
+      addAuditLog(`CCO traced timeline dependencies for milestone: [${id}]`, 'Audit');
+    }
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold">U.S. Launch Gantt Roadmap</h1>
-        <p className="text-sm text-grey-dark mt-1">
-          Chronological tracks and task dependencies mapping the 24-month regulatory path to a full U.S. launch.
+    <div className="space-y-4 text-navy dark:text-ice h-[calc(100vh-6.5rem)] flex flex-col overflow-hidden min-h-0">
+      {/* Header */}
+      <div className="shrink-0">
+        <h1 className="text-2xl font-bold flex items-center gap-2"><CalendarRange size={24} className="text-navy dark:text-ice" /> Chronos Gantt Timeline</h1>
+        <p className="text-sm text-grey-dark dark:text-grey-light mt-0.5">
+          Chronological launch sequence mapping corporate formations, MTL submissions, and custodial launches over a 24-month horizon.
         </p>
       </div>
 
-      {/* Main Roadmap & Detail Panel */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-        {/* Gantt Timeline (Left/Center) */}
-        <div className="lg:col-span-3 space-y-3">
-          <Card className="overflow-x-auto">
-            <CardBody className="p-4 min-w-[700px]">
-              {/* Gantt Header Timeline months */}
-              <div
-                style={{ display: 'grid', gridTemplateColumns: 'repeat(25, minmax(0, 1fr))' }}
-                className="border-b border-line pb-2 mb-3 text-[10px] font-bold uppercase tracking-wider text-grey-dark dark:text-grey-light text-center"
-              >
-                <div className="col-span-5 text-left pl-2">Compliance Track</div>
-                {Array.from({ length: 20 }, (_, i) => (
-                  <div key={i} className="col-span-1 border-l border-line/60">
-                    M{i + 1}
-                  </div>
-                ))}
-              </div>
-
-              {/* Rows */}
-              <div className="space-y-4">
-                {timelineData.map(item => {
-                  const startCol = item.startMonth + 5;
-                  const endCol = startCol + item.duration;
-                  return (
-                    <div
-                      key={item.id}
-                      style={{ display: 'grid', gridTemplateColumns: 'repeat(25, minmax(0, 1fr))' }}
-                      className="items-center relative group min-h-8"
-                    >
-                      {/* Track name & Task label */}
-                      <div className="col-span-5 text-left text-xs font-semibold pr-2 leading-tight text-navy dark:text-ice">
-                        <div className="text-[9px] text-grey uppercase tracking-wider">{item.track}</div>
-                        <div>{item.name}</div>
-                      </div>
-
-                      {/* Timeline Bar block */}
-                      <button
-                        onClick={() => setSelectedTask(item)}
-                        className={`col-span-20 border rounded-md h-7 select-none text-left pl-2.5 flex items-center justify-between text-[10px] font-bold transition-all relative ${
-                          selectedTask?.id === item.id ? 'ring-2 ring-navy dark:ring-ice z-10 scale-[1.01]' : 'hover:scale-[1.005]'
-                        } ${item.color}`}
-                        style={{
-                          gridColumnStart: startCol,
-                          gridColumnEnd: endCol,
-                        }}
-                      >
-                        <span className="truncate pr-1">{item.name}</span>
-                        <span className="text-[9px] pr-2 shrink-0">{item.duration}M</span>
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardBody>
-          </Card>
+      {/* Main Gantt workspace */}
+      <div className="flex-1 bg-card border border-line rounded-lg p-5 flex flex-col min-h-0 overflow-y-auto shadow-sm">
+        
+        {/* Timeline Months Ruler */}
+        <div className="grid grid-cols-24 border-b border-line pb-2.5 font-mono text-[9px] font-bold text-grey uppercase select-none shrink-0">
+          {Array.from({ length: 24 }).map((_, i) => (
+            <div key={i} className="text-center border-r border-line/30 last:border-0">
+              M{i + 1}
+            </div>
+          ))}
         </div>
 
-        {/* Milestone Detail Inspector (Right) */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="border-b border-line px-4 py-3 font-semibold flex items-center gap-2">
-              <Calendar size={18} className="text-navy dark:text-ice" /> Milestone Inspector
-            </CardHeader>
-            <CardBody className="p-4 space-y-4">
-              {selectedTask ? (
-                <div className="space-y-3 text-sm text-navy dark:text-ice">
-                  <div>
-                    <h3 className="font-bold text-base leading-tight">{selectedTask.name}</h3>
-                    <span className="text-[10px] uppercase tracking-wider text-grey font-semibold">{selectedTask.track}</span>
-                  </div>
+        {/* Gantt Tracks Viewport (Relative position container to layout vectors) */}
+        <div className="flex-1 min-h-[300px] py-6 relative select-none">
+          
+          {/* Background vertical columns helper grid lines */}
+          <div className="absolute inset-0 grid grid-cols-24 pointer-events-none opacity-[0.03] select-none z-0">
+            {Array.from({ length: 24 }).map((_, i) => (
+              <div key={i} className="border-r border-navy dark:border-ice h-full" />
+            ))}
+          </div>
 
-                  <p className="text-xs text-grey-dark dark:text-grey-light leading-relaxed">
-                    {selectedTask.description}
-                  </p>
+          {/* SVG Dependency Vector Overlays */}
+          <svg className="absolute inset-0 h-full w-full pointer-events-none z-10">
+            {hoveredMilestoneId && (() => {
+              const target = LAUNCH_MILESTONES.find(m => m.id === hoveredMilestoneId);
+              if (!target) return null;
 
-                  <div className="flex items-center gap-4 text-xs font-medium border-t border-b border-line py-2.5 my-2">
-                    <div className="flex items-center gap-1.5">
-                      <Clock size={14} className="text-grey" />
-                      <span>Duration: {selectedTask.duration} Months</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="inline-block w-2.5 h-2.5 rounded-full border border-black/10 bg-current text-current opacity-70" />
-                      <span className="font-bold uppercase tracking-wider text-[9px]">{selectedTask.status}</span>
-                    </div>
-                  </div>
+              // Find coordinates of target block
+              const targetCol = target.startMonth - 1;
+              const targetW = target.duration;
+              const targetRow = target.row;
 
-                  {/* Dependencies */}
-                  <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-grey mb-1.5 flex items-center gap-1">
-                      <AlertCircle size={12} /> Dependencies
-                    </h4>
-                    {selectedTask.dependencies.length === 0 ? (
-                      <span className="text-xs text-green-600 dark:text-green-400 italic">None (Immediate Start)</span>
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedTask.dependencies.map((dep, idx) => (
-                          <span key={idx} className="text-[10px] bg-ice-soft dark:bg-ice-soft/10 border border-line rounded px-2 py-0.5 font-medium">
-                            {dep}
-                          </span>
-                        ))}
-                      </div>
+              const tX = (targetCol + targetW / 2) * (100 / 24); // center x percentage
+              const tY = (targetRow * 60) - 20;
+
+              return target.dependencies.map(parentId => {
+                const parent = LAUNCH_MILESTONES.find(m => m.id === parentId);
+                if (!parent) return null;
+
+                const pCol = parent.startMonth - 1;
+                const pW = parent.duration;
+                const pRow = parent.row;
+
+                const pX = (pCol + pW / 2) * (100 / 24);
+                const pY = (pRow * 60) - 20;
+
+                // Draw curve path
+                return (
+                  <path
+                    key={parentId}
+                    d={`M ${pX}% ${pY} Q ${(pX + tX) / 2}% ${(pY + tY) / 2 - 20} ${tX}% ${tY}`}
+                    fill="transparent"
+                    stroke="#06b6d4" // Vibrant Cyan vector line
+                    strokeWidth="2"
+                    strokeDasharray="4,4"
+                    className="animate-pulse-beacon"
+                  />
+                );
+              });
+            })()}
+          </svg>
+
+          {/* Gantt Bar Cards Stack */}
+          <div className="space-y-6 relative z-20">
+            {/* Track 1 */}
+            <div className="h-10 relative w-full">
+              {LAUNCH_MILESTONES.map(m => {
+                const isHovered = hoveredMilestoneId === m.id;
+                const isHighlighted = highlightedIds.has(m.id);
+                const hasActiveTracing = hoveredMilestoneId !== null;
+
+                // Calculate CSS positioning parameters
+                const leftPct = ((m.startMonth - 1) / 24) * 100;
+                const widthPct = (m.duration / 24) * 100;
+
+                return (
+                  <button
+                    key={m.id}
+                    onMouseEnter={() => handleMilestoneHover(m.id)}
+                    onMouseLeave={() => handleMilestoneHover(null)}
+                    style={{
+                      left: `${leftPct}%`,
+                      width: `${widthPct}%`,
+                      top: `${(m.row - 1) * 60}px`,
+                    }}
+                    className={clsx(
+                      'absolute h-10 rounded border text-left p-1.5 flex flex-col justify-between shadow-sm cursor-pointer select-none transition-all duration-300 font-sans',
+                      isHovered && 'ring-2 ring-cyan-500/50 scale-[1.02] border-cyan-500 z-30',
+                      isHighlighted && !isHovered && 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+                      !isHighlighted && hasActiveTracing && 'opacity-15 grayscale scale-95 pointer-events-none',
+                      !hasActiveTracing && 'border-line bg-card hover:border-grey'
                     )}
-                  </div>
-
-                  {/* Unlocks */}
-                  <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-grey mb-1.5 flex items-center gap-1">
-                      <Info size={12} /> Target Unlocks
-                    </h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedTask.unlocks.map((unl, idx) => (
-                        <span key={idx} className="text-[10px] bg-status-ready/15 border border-status-ready/20 text-status-ready rounded px-2 py-0.5 font-bold">
-                          {unl}
-                        </span>
-                      ))}
+                  >
+                    <div className="flex justify-between items-center w-full leading-none">
+                      <span className="text-[9px] font-bold truncate max-w-[80%]">{m.name}</span>
+                      <span className="text-[7px] font-mono text-grey uppercase tracking-wider">{m.phase.replace('Phase ', 'P')}</span>
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-xs text-grey italic flex flex-col items-center gap-2">
-                  <Info size={24} className="text-grey-light" />
-                  Select a milestone bar on the Gantt chart to inspect timeline details.
-                </div>
-              )}
-            </CardBody>
-          </Card>
+                    <div className="text-[7px] text-grey-dark dark:text-grey-light font-mono truncate leading-none mt-0.5">
+                      M{m.startMonth} - M{m.startMonth + m.duration} ({m.duration}m)
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
         </div>
+
+        {/* Floating operational information box */}
+        <div className="mt-8 border-t border-line/45 pt-4 text-[10px] text-grey leading-normal space-y-1 select-none shrink-0">
+          <p className="font-bold flex items-center gap-1"><Network size={11} className="text-cyan-500" /> Operational Chronos Protocol:</p>
+          <p>Hovering over any Gantt block draws live dependency vectors illustrating upstream compliance filings and downstream gating locks.</p>
+        </div>
+
       </div>
     </div>
   );
 }
+export default Roadmap;

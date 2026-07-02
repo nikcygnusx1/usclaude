@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { InspectorDrawer } from '@/components/ui';
 import { readinessItems } from '@/data/readiness';
-import { Card, CardBody } from '@/components/ui';
 import { ReadinessItem, ReadinessStatus } from '@/types/ontology';
-import { FileText, Award, Landmark } from 'lucide-react';
+import { useAuditStore } from '@/stores/useAuditStore';
+import { FileText, Award, Landmark, User, Save } from 'lucide-react';
+import { clsx } from 'clsx';
 
 const categoryIcons = {
   Corporate: Landmark,
@@ -10,136 +12,254 @@ const categoryIcons = {
   Surveillance: Award,
 };
 
-const statusClasses: Record<ReadinessStatus, string> = {
-  'Not Started': 'border-line text-grey dark:text-grey-light/50',
-  'In Progress': 'border-status-deferred text-status-deferred',
-  'Counsel Review': 'border-status-conditional text-status-conditional',
-  'Complete': 'border-status-ready text-status-ready bg-status-ready/5',
+const statusColors: Record<ReadinessStatus, string> = {
+  'Not Started': 'bg-slate-100 border-slate-300 text-slate-500 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400',
+  'In Progress': 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-950/20 dark:border-blue-900 dark:text-blue-400',
+  'Counsel Review': 'bg-amber-50 border-amber-200 text-amber-600 dark:bg-amber-950/20 dark:border-amber-900 dark:text-amber-400',
+  Complete: 'bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400',
+};
+
+const statusBorder: Record<ReadinessStatus, string> = {
+  'Not Started': 'border-l-slate-400',
+  'In Progress': 'border-l-blue-400',
+  'Counsel Review': 'border-l-amber-400',
+  Complete: 'border-l-emerald-400',
 };
 
 export function ReadinessStack() {
-  const [items, setItems] = useState<ReadinessItem[]>(() => {
-    const saved = localStorage.getItem('lcx-readiness-stack');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Fallback checks to ensure parsed is valid array
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    return readinessItems;
-  });
+  const {
+    readinessAssignments,
+    readinessStatusOverrides,
+    updateReadinessAssignment,
+    updateReadinessStatus,
+    addAuditLog,
+  } = useAuditStore();
 
-  const updateStatus = (id: string, status: ReadinessStatus) => {
-    const next = items.map(item => item.id === id ? { ...item, status } : item);
-    setItems(next);
-    localStorage.setItem('lcx-readiness-stack', JSON.stringify(next));
+  const [selectedTask, setSelectedTask] = useState<ReadinessItem | null>(null);
+
+  // Temporary drawer form states
+  const [owner, setOwner] = useState<string>('');
+  const [notes, setNotes] = useState<string>('');
+  const [subtasks, setSubtasks] = useState<Record<string, boolean>>({});
+
+  // Merge base readiness items with status overrides
+  const items = useMemo(() => {
+    return readinessItems.map(item => ({
+      ...item,
+      status: readinessStatusOverrides[item.id] || item.status,
+    }));
+  }, [readinessStatusOverrides]);
+
+  const handleOpenTask = (task: ReadinessItem) => {
+    setSelectedTask(task);
+    const assign = readinessAssignments[task.id] || { owner: '', notes: '', subtasks: {} };
+    setOwner(assign.owner || 'Unassigned');
+    setNotes(assign.notes || task.notes);
+    setSubtasks(assign.subtasks || {});
+    addAuditLog(`CCO opened Kanban task details: [${task.id}]`, 'Audit');
   };
 
-  // Calculate percentages
-  const getProgress = (cat: 'Corporate' | 'Documents' | 'Surveillance') => {
-    const catItems = items.filter(i => i.category === cat);
-    const complete = catItems.filter(i => i.status === 'Complete').length;
-    return catItems.length ? Math.round((complete / catItems.length) * 100) : 0;
+  const handleSaveAssignment = () => {
+    if (!selectedTask) return;
+    updateReadinessAssignment(selectedTask.id, owner, notes, subtasks);
+    setSelectedTask(null);
+    addAuditLog(`CCO saved assignments for Kanban task [${selectedTask.id}]`, 'System');
   };
 
+  const handleSubtaskToggle = (key: string) => {
+    setSubtasks(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Get aggregated stats
   const total = items.length;
-  const complete = items.filter(i => i.status === 'Complete').length;
-  const overallPercent = total ? Math.round((complete / total) * 100) : 0;
+  const completeCount = items.filter(i => i.status === 'Complete').length;
+  const progressPercent = total ? Math.round((completeCount / total) * 100) : 0;
+
+  const renderColumn = (category: 'Corporate' | 'Documents' | 'Surveillance') => {
+    const colItems = items.filter(i => i.category === category);
+    const Icon = categoryIcons[category];
+
+    return (
+      <div className="flex-1 flex flex-col min-h-0 bg-ice-soft/20 dark:bg-navy-deep/10 border border-line rounded-lg p-3">
+        {/* Column Header */}
+        <div className="flex justify-between items-center pb-2 border-b border-line mb-3 shrink-0 select-none">
+          <div className="flex items-center gap-2">
+            <Icon size={14} className="text-grey" />
+            <h3 className="font-bold text-xs uppercase tracking-wider text-grey">{category}</h3>
+          </div>
+          <span className="font-mono text-[10px] bg-card border border-line rounded-full px-2 py-0.5 font-bold">
+            {colItems.length}
+          </span>
+        </div>
+
+        {/* Column Scrollable Cards */}
+        <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+          {colItems.map(item => {
+            const assign = readinessAssignments[item.id] || { owner: 'Unassigned', notes: '' };
+            const subtaskCount = Object.values(assign.subtasks || {}).filter(Boolean).length;
+            const borderAccent = statusBorder[item.status] || 'border-l-slate-400';
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => handleOpenTask(item)}
+                className={clsx(
+                  'bg-card border border-line border-l-4 rounded p-3 text-left transition-all hover:border-grey hover:scale-[1.01] active:scale-[0.99] cursor-pointer shadow-sm relative select-none',
+                  borderAccent
+                )}
+              >
+                <div className="flex justify-between items-start gap-2">
+                  <h4 className="font-bold text-xs leading-snug">{item.name}</h4>
+                  <span className={clsx('text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded border', statusColors[item.status])}>
+                    {item.status}
+                  </span>
+                </div>
+                <p className="text-[10px] text-grey-dark dark:text-grey-light mt-1.5 leading-relaxed line-clamp-2">
+                  {item.description}
+                </p>
+
+                {/* Subtask and Assignee readouts */}
+                <div className="pt-2 mt-2 border-t border-line/45 flex justify-between items-center text-[8px] font-mono text-grey leading-none">
+                  <div className="flex items-center gap-1">
+                    <User size={10} />
+                    <span className="font-sans font-semibold uppercase">{assign.owner || 'Unassigned'}</span>
+                  </div>
+                  <span>{subtaskCount} / 3 SUBTASKS</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Top Banner & Overall Progress */}
-      <div>
-        <h1 className="text-2xl font-bold">Operational Readiness Stack</h1>
-        <p className="text-sm text-grey-dark mt-1">
-          Track the drafting, validation, and engineering audits of LCX USA’s required compliance materials.
-        </p>
+    <div className="flex h-[calc(100vh-6.5rem)] flex-col gap-4 text-navy dark:text-ice overflow-hidden">
+      {/* Header and Progress summary */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">Compliance Operations Kanban</h1>
+          <p className="text-sm text-grey-dark dark:text-grey-light mt-0.5">
+            Organize task structures, file validations, and surveillance auditing controls for the U.S. launch cohort.
+          </p>
+        </div>
+
+        {/* Global Progress Gauge */}
+        <div className="flex items-center gap-3 bg-card border border-line rounded px-4 py-1.5 shrink-0 font-mono shadow-sm">
+          <div className="text-right">
+            <div className="text-[9px] text-grey uppercase font-bold tracking-wider">Overall Controls Completed</div>
+            <div className="text-[10px] text-grey-dark">{completeCount} of {total} verified</div>
+          </div>
+          <span className="text-2xl font-extrabold text-cyan-500">{progressPercent}%</span>
+        </div>
       </div>
 
-      {/* Progress Dashboard */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        {/* Overall Completion card */}
-        <Card className="bg-navy text-white border-0 flex flex-col justify-center p-6 text-center">
-          <CardBody className="space-y-1">
-            <span className="text-4xl font-extrabold">{overallPercent}%</span>
-            <h2 className="text-xs uppercase tracking-wider font-semibold text-grey-light">Overall Readiness</h2>
-            <p className="text-[10px] text-grey-light/60 mt-2">{complete} of {total} controls verified complete</p>
-          </CardBody>
-        </Card>
-
-        {/* Category progress cards */}
-        {(['Corporate', 'Documents', 'Surveillance'] as const).map(cat => {
-          const pct = getProgress(cat);
-          const Icon = categoryIcons[cat];
-          return (
-            <Card key={cat}>
-              <CardBody className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="rounded-md bg-ice-soft dark:bg-ice-soft/10 p-2 text-navy dark:text-ice"><Icon size={18} /></div>
-                  <h3 className="font-semibold text-sm">{cat}</h3>
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs font-semibold mb-1">
-                    <span>Progress</span>
-                    <span>{pct}%</span>
-                  </div>
-                  <div className="w-full bg-ice-soft dark:bg-ice-soft/10 rounded-full h-1.5 overflow-hidden">
-                    <div className="bg-navy dark:bg-ice h-1.5 rounded-full transition-all duration-300" style={{ width: `${pct}%` }}></div>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-          );
-        })}
+      {/* Kanban Columns Layout Grid */}
+      <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0 overflow-hidden">
+        {renderColumn('Corporate')}
+        {renderColumn('Documents')}
+        {renderColumn('Surveillance')}
       </div>
 
-      {/* Main Checklist Card Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map(item => {
-          const Icon = categoryIcons[item.category];
-          return (
-            <Card key={item.id} className="flex flex-col justify-between">
-              <CardBody className="space-y-3 flex-1 flex flex-col justify-between">
-                <div className="space-y-2">
-                  {/* Category Badge & Status Dropdown */}
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] font-semibold tracking-wider uppercase text-grey dark:text-grey-light/70 flex items-center gap-1.5">
-                      <Icon size={12} /> {item.category}
-                    </span>
-                    <select
-                      value={item.status}
-                      onChange={e => updateStatus(item.id, e.target.value as ReadinessStatus)}
-                      className={`text-xs rounded-md border bg-card px-2 py-1 font-semibold outline-none transition-colors ${statusClasses[item.status]}`}
+      {/* Task Assignment slide-out Drawer */}
+      <InspectorDrawer isOpen={!!selectedTask} onClose={() => setSelectedTask(null)} title={selectedTask?.name ?? ''}>
+        {selectedTask && (
+          <div className="space-y-4 text-xs text-navy dark:text-ice leading-relaxed">
+            <div className="space-y-2 pb-3 border-b border-line">
+              <span className="font-bold text-[9px] uppercase tracking-wider text-grey block">Control Target Description</span>
+              <p>{selectedTask.description}</p>
+              <div className="text-[9px] font-mono text-grey mt-1">
+                <strong>GATES SERVICE:</strong> {selectedTask.gatingFor}
+              </div>
+            </div>
+
+            {/* Task Status Dropdown */}
+            <div className="space-y-1.5">
+              <label className="font-bold text-[9px] uppercase tracking-wider text-grey block">Control Verification Status</label>
+              <select
+                value={selectedTask.status}
+                onChange={e => updateReadinessStatus(selectedTask.id, e.target.value as ReadinessStatus)}
+                className="w-full h-8 rounded border border-line bg-ice-soft dark:bg-navy-deep px-2 font-semibold focus:outline-none"
+              >
+                <option value="Not Started">Not Started</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Counsel Review">Counsel Review</option>
+                <option value="Complete">Complete</option>
+              </select>
+            </div>
+
+            {/* Owner Dropdown */}
+            <div className="space-y-1.5">
+              <label className="font-bold text-[9px] uppercase tracking-wider text-grey block">Assigned Owner Role</label>
+              <select
+                value={owner}
+                onChange={e => setOwner(e.target.value)}
+                className="w-full h-8 rounded border border-line bg-ice-soft dark:bg-navy-deep px-2 font-semibold focus:outline-none"
+              >
+                <option value="Unassigned">Unassigned</option>
+                <option value="Chief Compliance Officer (CCO)">Chief Compliance Officer (CCO)</option>
+                <option value="Regulatory Counsel (Counsel)">Regulatory Counsel (Counsel)</option>
+                <option value="Chief Technology Officer (CTO)">Chief Technology Officer (CTO)</option>
+                <option value="Operational Risk Lead (Analyst)">Operational Risk Lead (Analyst)</option>
+              </select>
+            </div>
+
+            {/* Subtask Checklists */}
+            <div className="space-y-2 pt-2 border-t border-line">
+              <label className="font-bold text-[9px] uppercase tracking-wider text-grey block">Operational Checklists</label>
+              <div className="space-y-1.5">
+                {[
+                  { key: 'draft', label: '1. Drafting regulatory policies & procedures' },
+                  { key: 'counsel', label: '2. External legal counsel audit & opinion' },
+                  { key: 'exec', label: '3. Board & C-Suite executive sign-off' },
+                ].map(sub => {
+                  const active = !!subtasks[sub.key];
+                  return (
+                    <button
+                      key={sub.key}
+                      onClick={() => handleSubtaskToggle(sub.key)}
+                      className={clsx(
+                        'flex items-center gap-2.5 w-full text-left p-1.5 rounded hover:bg-ice-soft dark:hover:bg-ice-soft/10 text-[11px] font-semibold transition-colors'
+                      )}
                     >
-                      <option value="Not Started">Not Started</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Counsel Review">Counsel Review</option>
-                      <option value="Complete">Complete</option>
-                    </select>
-                  </div>
+                      <input
+                        type="checkbox"
+                        checked={active}
+                        readOnly
+                        className="rounded border-grey/40 text-navy focus:ring-0 cursor-pointer h-3.5 w-3.5"
+                      />
+                      <span className={active ? 'line-through text-grey' : ''}>{sub.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                  {/* Title & Description */}
-                  <div>
-                    <h4 className="font-bold text-sm text-navy dark:text-ice leading-tight">{item.name}</h4>
-                    <p className="text-xs text-grey-dark dark:text-grey-light/80 mt-1">{item.description}</p>
-                  </div>
-                </div>
+            {/* Audit Notes Review Textarea */}
+            <div className="space-y-1.5 pt-2 border-t border-line">
+              <label className="font-bold text-[9px] uppercase tracking-wider text-grey block">CCO Audit Review Comments</label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={3}
+                placeholder="Input notes, counsel references, or audit checklist comments..."
+                className="w-full rounded border border-line bg-ice-soft dark:bg-navy-deep p-2 text-[11px] focus:outline-none placeholder-grey/50"
+              />
+            </div>
 
-                {/* Gating & Notes Box */}
-                <div className="space-y-2 pt-2 border-t border-line mt-auto">
-                  <p className="text-[10px] text-grey dark:text-grey-light/60">
-                    <span className="font-bold uppercase tracking-wider text-[9px] mr-1">Gates Product:</span> {item.gatingFor}
-                  </p>
-                  <div className="bg-ice-soft dark:bg-ice-soft/10 rounded p-2 text-xs italic text-grey-dark dark:text-grey-light pl-2 border-l border-line">
-                    "{item.notes}"
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-          );
-        })}
-      </div>
+            {/* Save Covenants Button */}
+            <button
+              onClick={handleSaveAssignment}
+              className="w-full h-9 rounded bg-navy dark:bg-ice text-white dark:text-navy hover:opacity-95 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm mt-3"
+            >
+              <Save size={13} />
+              <span>Save Control Assignment</span>
+            </button>
+          </div>
+        )}
+      </InspectorDrawer>
     </div>
   );
 }
+export default ReadinessStack;
