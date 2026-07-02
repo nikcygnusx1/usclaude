@@ -5,18 +5,37 @@ import { STORAGE_KEYS } from '@/lib/storage';
 import type { Status, Phase, Confidence, VerificationStatus, SourceAuthority } from '@/types/ontology';
 
 interface FilterState {
-  selectedStatuses: Status[]; selectedPhases: Phase[]; selectedDomains: string[];
-  selectedConfidences: Confidence[]; selectedVerificationStatuses: VerificationStatus[];
-  selectedSourceAuthorities: SourceAuthority[]; searchQuery: string;
+  selectedStatuses: Status[];
+  selectedPhases: Phase[];
+  selectedDomains: string[];
+  selectedConfidences: Confidence[];
+  selectedVerificationStatuses: VerificationStatus[];
+  selectedSourceAuthorities: SourceAuthority[];
+  searchQuery: string;
+  clarityEnacted: boolean;
 }
+
 interface FilterStore extends FilterState {
   setFilter: <K extends keyof FilterState>(key: K, value: FilterState[K]) => void;
+  toggleClarityEnacted: () => void;
   resetFilters: () => void;
 }
-const init: FilterState = { selectedStatuses:[], selectedPhases:[], selectedDomains:[], selectedConfidences:[], selectedVerificationStatuses:[], selectedSourceAuthorities:[], searchQuery:'' };
+
+const init: FilterState = {
+  selectedStatuses: [],
+  selectedPhases: [],
+  selectedDomains: [],
+  selectedConfidences: [],
+  selectedVerificationStatuses: [],
+  selectedSourceAuthorities: [],
+  searchQuery: '',
+  clarityEnacted: false
+};
+
 export const useFilterStore = create<FilterStore>()(persist(set => ({
   ...init,
-  setFilter: (key, value) => set({ [key]: value }),
+  setFilter: (key, value) => set({ [key]: value } as any),
+  toggleClarityEnacted: () => set(s => ({ clarityEnacted: !s.clarityEnacted })),
   resetFilters: () => set({ ...init }),
 }), {
   name: STORAGE_KEYS.FILTERS,

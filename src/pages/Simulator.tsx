@@ -37,16 +37,22 @@ const architectures: Record<ArchOption, {
   },
 };
 
+const phaseOrder = ['Pre-launch', 'Phase 1', 'Phase 2', 'Phase 3', 'Post-CLARITY'];
+
 export function Simulator() {
   const [option, setOption] = useState<ArchOption>('A');
   const arch = architectures[option];
   const product = products.find(p => p.id === arch.productId);
 
-  const compatibleStates = option === 'A'
-    ? states.filter(s => s.phase === 'Phase 1' && s.tier !== 'Unresearched')
-    : option === 'B'
-      ? states.filter(s => s.phase === 'Phase 2' && s.tier !== 'Unresearched')
-      : states.filter(s => s.phase === 'Phase 3' && s.tier !== 'Unresearched');
+  // Cumulative compatible states filter based on rollout sequence
+  const targetPhase = option === 'A' ? 'Phase 1' : option === 'B' ? 'Phase 2' : 'Phase 3';
+  const targetPhaseIndex = phaseOrder.indexOf(targetPhase);
+
+  const compatibleStates = states.filter(s => {
+    if (s.tier === 'Unresearched') return false;
+    const sIndex = phaseOrder.indexOf(s.phase);
+    return sIndex >= 0 && sIndex <= targetPhaseIndex;
+  });
 
   return (
     <div className="space-y-4">
@@ -71,12 +77,12 @@ export function Simulator() {
 
       <Card>
         <CardHeader>{arch.name}</CardHeader>
-        <CardBody className="space-y-2 text-sm">
-          <p><span className="font-medium">Structure:</span> {arch.structure}</p>
-          <p><span className="font-medium">Licensing:</span> {arch.licensing}</p>
-          <p><span className="font-medium">Burden:</span> {arch.burden}</p>
-          <p><span className="font-medium">Benefit:</span> {arch.benefit}</p>
-          <p><span className="font-medium">Limitation:</span> {arch.limitation}</p>
+        <CardBody className="space-y-2 text-sm text-navy dark:text-ice">
+          <p><span className="font-semibold">Structure:</span> {arch.structure}</p>
+          <p><span className="font-semibold">Licensing:</span> {arch.licensing}</p>
+          <p><span className="font-semibold">Burden:</span> {arch.burden}</p>
+          <p><span className="font-semibold">Benefit:</span> {arch.benefit}</p>
+          <p><span className="font-semibold">Limitation:</span> {arch.limitation}</p>
           {product && (
             <div className="pt-2">
               <Badge status={toBadgeStatus(product.status)}>{product.name}: {product.status}</Badge>
@@ -86,14 +92,17 @@ export function Simulator() {
       </Card>
 
       <Card>
-        <CardHeader>States compatible with this architecture's target phase ({compatibleStates.length})</CardHeader>
+        <CardHeader>States compatible with this architecture's target phase and preceding phases ({compatibleStates.length})</CardHeader>
         <CardBody>
           {compatibleStates.length === 0 ? (
             <p className="text-sm text-grey-dark">No researched states currently mapped to this phase.</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {compatibleStates.map(s => (
-                <span key={s.id} className="text-xs rounded-full border border-line px-2 py-1">{s.name}</span>
+                <span key={s.id} className="text-xs rounded-full border border-line px-3 py-1 bg-card text-navy dark:text-ice font-medium flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full ${s.phase === 'Phase 1' ? 'bg-status-ready' : s.phase === 'Phase 2' ? 'bg-status-conditional' : 'bg-status-blocked'}`} />
+                  {s.name} ({s.phase})
+                </span>
               ))}
             </div>
           )}

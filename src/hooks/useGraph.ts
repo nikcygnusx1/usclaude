@@ -3,7 +3,8 @@ import { Node, Edge, MarkerType, Position } from 'reactflow';
 import dagre from 'dagre';
 import { ontologyGraph } from '@/data/ontology';
 import { useFilterStore } from '@/stores/useFilterStore';
-import { RegulatoryNode, Status } from '@/types/ontology';
+import { RegulatoryNode, Status, Requirement } from '@/types/ontology';
+import { domains } from '@/data/domains';
 
 const statusColor: Record<Status, string> = {
   Ready: '#10b981',
@@ -31,16 +32,72 @@ function layout(nodes: RegulatoryNode[], edges: { id: string; source: string; ta
 }
 
 export function useGraph() {
-  const { selectedStatuses, selectedPhases, selectedDomains, searchQuery } = useFilterStore();
+  const { selectedStatuses, selectedPhases, selectedDomains, searchQuery, clarityEnacted } = useFilterStore();
 
   const filtered = useMemo(() => {
     let nodes = ontologyGraph.nodes;
+
+    // Filter by domain
+    if (selectedDomains.length) {
+      const keptDomainIds = new Set(selectedDomains);
+      const keptRequirementNodes = ontologyGraph.nodes.filter(n => {
+        if (n.type !== 'requirement') return false;
+        const req = n.data as Requirement;
+        const dom = domains.find(d => d.name === req.domain);
+        return dom && keptDomainIds.has(dom.id);
+      });
+      const keptRequirementIds = new Set(keptRequirementNodes.map(n => n.id));
+
+      // Keep licenses that govern kept requirements
+      const keptLicenseIds = new Set<string>();
+      ontologyGraph.edges.forEach(e => {
+        if (keptRequirementIds.has(e.target) && (e.type === 'governs' || e.type === 'enables')) {
+          keptLicenseIds.add(e.source);
+        }
+      });
+
+      // Keep states that require kept licenses
+      const keptStateIds = new Set<string>();
+      ontologyGraph.edges.forEach(e => {
+        if (keptLicenseIds.has(e.target) && e.type === 'requires') {
+          keptStateIds.add(e.source);
+        }
+      });
+
+      // Keep products that require kept requirements
+      const keptProductIds = new Set<string>();
+      ontologyGraph.edges.forEach(e => {
+        if (keptRequirementIds.has(e.target) && e.type === 'requires') {
+          keptProductIds.add(e.source);
+        }
+      });
+
+      // Keep phases triggered by kept products
+      const keptPhaseIds = new Set<string>();
+      ontologyGraph.edges.forEach(e => {
+        if (keptProductIds.has(e.source) && e.type === 'triggers') {
+          keptPhaseIds.add(e.target);
+        }
+      });
+
+      nodes = nodes.filter(n => {
+        if (n.type === 'domain') return keptDomainIds.has(n.id);
+        if (n.type === 'requirement') return keptRequirementIds.has(n.id);
+        if (n.type === 'license') return keptLicenseIds.has(n.id);
+        if (n.type === 'state') return keptStateIds.has(n.id);
+        if (n.type === 'product') return keptProductIds.has(n.id);
+        if (n.type === 'phase') return keptPhaseIds.has(n.id);
+        return false;
+      });
+    }
+
+    // Filter by status and phase
     if (selectedStatuses.length) nodes = nodes.filter(n => selectedStatuses.includes(n.status));
     if (selectedPhases.length) nodes = nodes.filter(n => selectedPhases.includes(n.phase));
-    if (selectedDomains.length) {
-      nodes = nodes.filter(n => n.type !== 'domain' ? true : selectedDomains.includes(n.id));
-    }
+
+    // Filter by search query
     if (searchQuery) nodes = nodes.filter(n => n.label.toLowerCase().includes(searchQuery.toLowerCase()));
+
     const ids = new Set(nodes.map(n => n.id));
     const edges = ontologyGraph.edges.filter(e => ids.has(e.source) && ids.has(e.target));
     return { nodes, edges };
@@ -48,32 +105,55 @@ export function useGraph() {
 
   const laidOut = useMemo(() => layout(filtered.nodes, filtered.edges), [filtered]);
 
-  const nodes: Node[] = laidOut.map(n => ({
-    id: n.id,
-    type: 'default',
-    position: { x: n.x - n.w / 2, y: n.y - 22 },
-    data: { label: n.label, node: n },
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-    style: {
-      width: n.w,
-      borderRadius: 8,
-      border: `2px solid ${statusColor[n.status]}`,
-      background: 'var(--card)',
-      color: 'var(--navy)',
-      fontSize: 12,
-      fontWeight: 500,
-      padding: '6px 10px',
-    },
-  }));
+  const nodes: Node[] = laidOut.map(n => {
+    const isReq = n.type === 'requirement';
+    const req = isReq ? (n.data as Requirement) : null;
+    const isPreempted = clarityEnacted && req?.preemptedUnderClarity;
 
-  const edges: Edge[] = filtered.edges.map(e => ({
-    id: e.id, source: e.source, target: e.target, type: 'smoothstep', animated: e.type === 'requires',
-    label: e.type,
-    labelStyle: { fontSize: 10, fill: '#64748b' },
-    style: { stroke: '#94a3b8' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' },
-  }));
+    return {
+      id: n.id,
+      type: 'default',
+      position: { x: n.x - n.w / 2, y: n.y - 22 },
+      data: {
+        label: isPreempted ? `[Preempted] ${n.label}` : n.label,
+        node: n,
+      },
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
+      style: {
+        width: n.w,
+        borderRadius: 8,
+        border: isPreempted ? `2px dashed #94a3b8` : `2px solid ${statusColor[n.status]}`,
+        background: 'var(--card)',
+        color: isPreempted ? '#94a3b8' : 'var(--navy)',
+        fontSize: 12,
+        fontWeight: 500,
+        padding: '6px 10px',
+        opacity: isPreempted ? 0.6 : 1,
+      },
+    };
+  });
+
+  const edges: Edge[] = filtered.edges.map(e => {
+    // Check if the target is a preempted requirement
+    const targetNode = ontologyGraph.nodes.find(n => n.id === e.target);
+    const isPreempted = clarityEnacted && targetNode?.type === 'requirement' && (targetNode.data as Requirement).preemptedUnderClarity;
+
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      type: 'smoothstep',
+      animated: e.type === 'requires' && !isPreempted,
+      label: e.type,
+      labelStyle: { fontSize: 10, fill: isPreempted ? '#cbd5e1' : '#64748b' },
+      style: {
+        stroke: isPreempted ? '#cbd5e1' : '#94a3b8',
+        strokeDasharray: isPreempted ? '5,5' : undefined,
+      },
+      markerEnd: { type: MarkerType.ArrowClosed, color: isPreempted ? '#cbd5e1' : '#94a3b8' },
+    };
+  });
 
   return { nodes, edges, nodeCount: filtered.nodes.length, edgeCount: filtered.edges.length };
 }

@@ -8,3 +8,10 @@ dist/
 .DS_Store
 Thumbs.db
 *.log
+
+# Research PDF
+LCX USA.pdf
+scratch_search_pdf.py
+scratch_pdf_*.txt
+
+

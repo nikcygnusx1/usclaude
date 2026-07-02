@@ -16,6 +16,11 @@ export interface State {
   estTimeline?: string;
   regulator?: string;
   notes: string; sourceAuthority: SourceAuthority; confidence: Confidence;
+  minNetWorth?: string;
+  suretyBond?: string;
+  sandboxAvailable: boolean;
+  sandboxNotes?: string;
+  nmlsRequired: boolean;
 }
 export interface License {
   id: string; name: string; abbreviation: string; description: string;
@@ -35,14 +40,35 @@ export type Domain =
 export interface Requirement {
   id: string; name: string; description: string; domain: Domain;
   trigger: string; status: Status; phase: Phase; sourceAuthority: SourceAuthority; confidence: Confidence;
+  preemptedUnderClarity?: boolean;
+  preemptionDescription?: string;
 }
 export interface Product {
   id: string; name: string; description: string;
   category: 'Exchange' | 'Custody' | 'Fiat' | 'Stablecoin' | 'DeFi' | 'Token';
   status: Status; phase: Phase; requirements: string[]; risks: string[]; sourceAuthority: SourceAuthority;
+  howeyScore?: number;
+  howeyAnalysis?: {
+    investmentOfMoney: string;
+    commonEnterprise: string;
+    profitExpectation: string;
+    effortsOfOthers: string;
+  };
 }
 export interface DomainMeta { id: string; name: Domain; description: string; }
 export interface PhaseMeta { id: string; name: Phase; description: string; }
+
+export type ReadinessStatus = 'Not Started' | 'In Progress' | 'Counsel Review' | 'Complete';
+export interface ReadinessItem {
+  id: string;
+  category: 'Corporate' | 'Documents' | 'Surveillance';
+  name: string;
+  description: string;
+  status: ReadinessStatus;
+  gatingFor: string;
+  notes: string;
+}
+
 
 export interface RegulatoryNode {
   id: string; type: 'state' | 'license' | 'requirement' | 'product' | 'domain' | 'phase';
