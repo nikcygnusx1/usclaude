@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { AlertTriangle, MapPin, ShieldCheck, Coins, Activity } from 'lucide-react';
 import { Card, CardHeader, CardBody, Badge, ReadinessMeter } from '@/components/ui';
-import { states, products, requirements, phases, readinessItems } from '@/data';
+import { states, products, requirements, phases, readinessItems, redFlags } from '@/data';
+import { useAuditStore } from '@/stores/useAuditStore';
 import { toBadgeStatus } from '@/lib/status';
 
 function StatCard({ icon: Icon, label, value, hint }: { icon: any; label: string; value: string | number; hint?: string }) {
@@ -28,6 +29,13 @@ export function Dashboard() {
   const phase1States = states.filter(s => s.phase === 'Phase 1' && s.tier !== 'Unresearched');
   const criticalStates = states.filter(s => s.priority === 'Critical' || s.priority === 'High').slice(0, 6);
 
+  const { resolvedRemediations } = useAuditStore();
+
+  const unresolvedCriticalCount = redFlags.filter(rf => {
+    if (rf.risk !== 'Critical' && rf.risk !== 'High') return false;
+    return rf.remediations.some(r => !resolvedRemediations.includes(r.id));
+  }).length;
+
   // Calculate readiness completion
   const totalReadiness = readinessItems.length;
   const completedReadiness = readinessItems.filter(r => r.status === 'Complete').length;
@@ -41,6 +49,21 @@ export function Dashboard() {
           Synthesized from the LCX USA U.S. Market Entry &amp; Regulatory Strategy research corpus (784-page multi-agent transcript).
         </p>
       </div>
+
+      {/* Critical warning alerts */}
+      {unresolvedCriticalCount > 0 && (
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300 font-medium flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="shrink-0 text-red-500" />
+            <span>
+              <strong>Critical Audit Warning</strong>: There are {unresolvedCriticalCount} unresolved Critical/High risk audit flags active. Resolve these before launching.
+            </span>
+          </div>
+          <Link to="/red-flags" className="underline font-bold shrink-0 hover:text-red-500">
+            Open Audit Log &rarr;
+          </Link>
+        </div>
+      )}
 
       {/* Stats Summary Grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

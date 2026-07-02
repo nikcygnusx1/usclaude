@@ -10,3 +10,5 @@ export { ReadinessStack } from './ReadinessStack';
 export { BriefGenerator } from './BriefGenerator';
 export { CapitalEstimator } from './CapitalEstimator';
 export { Roadmap } from './Roadmap';
+export { RedFlags } from './RedFlags';
+

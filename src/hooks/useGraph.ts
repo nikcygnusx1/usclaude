@@ -3,28 +3,27 @@ import { Node, Edge, MarkerType, Position } from 'reactflow';
 import dagre from 'dagre';
 import { ontologyGraph } from '@/data/ontology';
 import { useFilterStore } from '@/stores/useFilterStore';
-import { RegulatoryNode, Status, Requirement } from '@/types/ontology';
+import { RegulatoryNode, Requirement } from '@/types/ontology';
 import { domains } from '@/data/domains';
-import { clsx } from 'clsx';
-import React from 'react';
-
-const statusColor: Record<Status, string> = {
-  Ready: '#10b981',
-  Conditional: '#f59e0b',
-  Blocked: '#ef4444',
-  'Needs verification': '#64748b',
-  Deferred: '#94a3b8',
-};
 
 const typeWidth: Record<RegulatoryNode['type'], number> = {
-  state: 150, license: 190, requirement: 190, product: 190, domain: 210, phase: 150,
+  state: 160,
+  license: 200,
+  requirement: 200,
+  product: 200,
+  domain: 200,
+  phase: 150,
 };
 
-function layout(nodes: RegulatoryNode[], edges: { id: string; source: string; target: string }[]) {
+function layout(
+  nodes: RegulatoryNode[],
+  edges: { id: string; source: string; target: string }[],
+  direction: 'LR' | 'TB' = 'LR'
+) {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', nodesep: 32, ranksep: 110 });
-  nodes.forEach(n => g.setNode(n.id, { width: typeWidth[n.type], height: 44 }));
+  g.setGraph({ rankdir: direction, nodesep: 36, ranksep: 120 });
+  nodes.forEach(n => g.setNode(n.id, { width: typeWidth[n.type], height: 48 }));
   edges.forEach(e => g.setEdge(e.source, e.target));
   dagre.layout(g);
   return nodes.map(n => {
@@ -33,7 +32,7 @@ function layout(nodes: RegulatoryNode[], edges: { id: string; source: string; ta
   });
 }
 
-export function useGraph() {
+export function useGraph(layoutDirection: 'LR' | 'TB' = 'LR') {
   const { selectedStatuses, selectedPhases, selectedDomains, searchQuery, clarityEnacted } = useFilterStore();
 
   const filtered = useMemo(() => {
@@ -105,50 +104,23 @@ export function useGraph() {
     return { nodes, edges };
   }, [selectedStatuses, selectedPhases, selectedDomains, searchQuery]);
 
-  const laidOut = useMemo(() => layout(filtered.nodes, filtered.edges), [filtered]);
+  const laidOut = useMemo(() => layout(filtered.nodes, filtered.edges, layoutDirection), [filtered, layoutDirection]);
 
   const nodes: Node[] = laidOut.map(n => {
-    const isReq = n.type === 'requirement';
-    const req = isReq ? (n.data as Requirement) : null;
-    const isPreempted = clarityEnacted && req?.preemptedUnderClarity;
-    const activeColor = statusColor[n.status];
-
     return {
       id: n.id,
-      type: 'default',
-      position: { x: n.x - n.w / 2, y: n.y - 22 },
+      type: 'custom', // Hooks into components/ui/CustomOntologyNode
+      position: { x: n.x - n.w / 2, y: n.y - 24 },
       data: {
-        label: React.createElement(
-          'div',
-          { className: 'flex items-center gap-2 justify-start font-mono text-[10px]' },
-          React.createElement('span', {
-            className: clsx(
-              'h-1.5 w-1.5 rounded-full shrink-0',
-              n.status === 'Blocked' && 'animate-pulse-beacon'
-            ),
-            style: {
-              backgroundColor: isPreempted ? '#cbd5e1' : activeColor,
-              boxShadow: isPreempted ? 'none' : `0 0 6px ${activeColor}`
-            }
-          }),
-          React.createElement('span', { className: 'truncate' }, isPreempted ? `[Preempted] ${n.label}` : n.label)
-        ),
         node: n,
       },
-      sourcePosition: Position.Right,
-      targetPosition: Position.Left,
+      sourcePosition: layoutDirection === 'LR' ? Position.Right : Position.Bottom,
+      targetPosition: layoutDirection === 'LR' ? Position.Left : Position.Top,
       style: {
         width: n.w,
-        borderRadius: 6,
-        border: isPreempted ? `1px dashed #cbd5e1` : `1px solid ${activeColor}`,
-        background: 'var(--card)',
-        color: isPreempted ? '#94a3b8' : 'var(--navy)',
-        fontSize: 10,
-        fontWeight: 600,
-        padding: '6px 8px',
-        opacity: isPreempted ? 0.65 : 1,
-        boxShadow: isPreempted ? 'none' : `0 0 8px ${activeColor}15`,
-        textAlign: 'left'
+        border: '0',
+        padding: '0',
+        background: 'transparent',
       },
     };
   });
@@ -177,3 +149,4 @@ export function useGraph() {
 
   return { nodes, edges, nodeCount: filtered.nodes.length, edgeCount: filtered.edges.length };
 }
+export default useGraph;

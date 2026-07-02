@@ -1,7 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, GitBranch, Map, Grid3X3, Sliders, Settings, ChevronLeft, ChevronRight, Scale, ToggleLeft, ListTodo, FileText, DollarSign, Calendar } from 'lucide-react';
+import { LayoutDashboard, GitBranch, Map, Grid3X3, Sliders, Settings, ChevronLeft, ChevronRight, Scale, ToggleLeft, ListTodo, FileText, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
 import { useUIStore } from '@/stores/useUIStore';
 import { useFilterStore } from '@/stores/useFilterStore';
+import { useAuditStore } from '@/stores/useAuditStore';
+import { redFlags } from '@/data';
 import { Status, Phase } from '@/types/ontology';
 import { clsx } from 'clsx';
 import { domains } from '@/data/domains';
@@ -18,6 +20,7 @@ const navigation = [
   { to: '/brief-generator', label: 'Brief Generator', icon: FileText },
   { to: '/capital-estimator', label: 'Capital Estimator', icon: DollarSign },
   { to: '/roadmap', label: 'Launch Roadmap', icon: Calendar },
+  { to: '/red-flags', label: 'Red Flags & Audit', icon: AlertTriangle },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -27,6 +30,12 @@ const phases: Phase[] = ['Pre-launch', 'Phase 1', 'Phase 2', 'Phase 3', 'Post-CL
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { selectedStatuses, setFilter, selectedPhases, selectedDomains } = useFilterStore();
+  const { resolvedRemediations } = useAuditStore();
+
+  const unresolvedCount = redFlags.filter(rf => {
+    if (rf.risk !== 'Critical' && rf.risk !== 'High') return false;
+    return rf.remediations.some(r => !resolvedRemediations.includes(r.id));
+  }).length;
 
   const toggle = (item: any, key: any, selected: any) => {
     if (selected.includes(item)) setFilter(key, selected.filter((i: any) => i !== item));
@@ -40,12 +49,32 @@ export function Sidebar() {
         <button onClick={toggleSidebar} className="ml-auto rounded p-1 hover:bg-ice-soft">{sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}</button>
       </div>
       <nav className="flex-1 p-2 space-y-1">
-        {navigation.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={({ isActive }) => clsx('flex items-center gap-3 rounded-md px-2 py-2 text-sm', isActive ? 'bg-navy text-white' : 'text-navy hover:bg-ice-soft')}>
-            <Icon size={18} />
-            {!sidebarCollapsed && <span>{label}</span>}
-          </NavLink>
-        ))}
+        {navigation.map(({ to, label, icon: Icon }) => {
+          const isRedFlags = to === '/red-flags';
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                clsx(
+                  'flex items-center gap-3 rounded-md px-2 py-2 text-sm relative',
+                  isActive ? 'bg-navy text-white' : 'text-navy hover:bg-ice-soft dark:text-ice dark:hover:bg-ice-soft/10'
+                )
+              }
+            >
+              <Icon size={18} />
+              {!sidebarCollapsed && <span className="flex-1">{label}</span>}
+              {!sidebarCollapsed && isRedFlags && unresolvedCount > 0 && (
+                <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                  {unresolvedCount}
+                </span>
+              )}
+              {sidebarCollapsed && isRedFlags && unresolvedCount > 0 && (
+                <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full animate-pulse-beacon" />
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
       {!sidebarCollapsed && (
         <div className="p-3 space-y-2 border-t border-line">

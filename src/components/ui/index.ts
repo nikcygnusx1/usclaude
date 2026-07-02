@@ -8,5 +8,7 @@ export { Tooltip } from './Tooltip';
 export { Modal } from './Modal';
 export { InspectorDrawer } from './InspectorDrawer';
 export { ReadinessMeter } from './ReadinessMeter';
+export { CustomOntologyNode } from './CustomOntologyNode';
+
 
 
