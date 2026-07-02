@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { states } from '@/data';
 import { useFilterStore } from '@/stores/useFilterStore';
-import { Badge, Modal } from '@/components/ui';
+import { Badge, InspectorDrawer } from '@/components/ui';
 import { toBadgeStatus } from '@/lib/status';
 import { State } from '@/types/ontology';
 
@@ -62,9 +62,9 @@ export function StateMap() {
         </div>
       )}
 
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ''}>
+      <InspectorDrawer isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ''}>
         {selected && (
-          <div className="space-y-2 text-sm text-navy dark:text-ice">
+          <div className="space-y-3 text-sm text-navy dark:text-ice leading-relaxed">
             <div className="flex flex-wrap gap-2 mb-3">
               <Badge status={toBadgeStatus(selected.status)}>{selected.status}</Badge>
               <span className="text-xs rounded-full border border-line px-2 py-0.5">{selected.phase}</span>
@@ -78,29 +78,58 @@ export function StateMap() {
               </div>
             )}
 
-            <p><span className="font-semibold">Regime Type:</span> {selected.regimeType}</p>
-            <p><span className="font-semibold">Priority:</span> {selected.priority}</p>
-            {selected.regulator && <p><span className="font-semibold">Regulator:</span> {selected.regulator}</p>}
-            {selected.primaryPainPoint && <p><span className="font-semibold">Primary Pain Point:</span> {selected.primaryPainPoint}</p>}
-            
-            {/* Extended bonding/net worth fields */}
-            {selected.minNetWorth && <p><span className="font-semibold">Minimum Net Worth:</span> {selected.minNetWorth}</p>}
-            {selected.suretyBond && <p><span className="font-semibold">Surety Bond:</span> {selected.suretyBond}</p>}
-            {selected.sandboxAvailable !== undefined && (
-              <p><span className="font-semibold">Regulatory Sandbox:</span> {selected.sandboxAvailable ? 'Available' : 'None'}</p>
-            )}
-            {selected.sandboxNotes && <p className="text-xs text-grey-dark dark:text-grey-light pl-3 border-l border-line italic">{selected.sandboxNotes}</p>}
-            {selected.tier !== 'Unresearched' && (
-              <p><span className="font-semibold">NMLS Integration:</span> {selected.nmlsRequired ? 'NMLS Application Required' : 'NMLS Not Used'}</p>
-            )}
+            <div className="space-y-2 border-b border-line pb-3">
+              <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Regime Type</span> {selected.regimeType}</p>
+              <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Priority</span> {selected.priority}</p>
+              {selected.regulator && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Regulator Portal</span> {selected.regulator}</p>}
+            </div>
 
-            {selected.estCost && <p><span className="font-semibold">Estimated Cost:</span> {selected.estCost}</p>}
-            {selected.estTimeline && <p><span className="font-semibold">Estimated Timeline:</span> {selected.estTimeline}</p>}
-            <p><span className="font-semibold">Notes:</span> {selected.notes}</p>
-            <p className="text-xs text-grey pt-2 border-t border-line mt-3">Confidence: {selected.confidence} · Source authority tier {selected.sourceAuthority}</p>
+            <div className="space-y-2 border-b border-line pb-3">
+              {/* Extended bonding/net worth fields */}
+              {selected.minNetWorth && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Minimum Corporate Net Worth</span> <span className="font-mono text-sm">{selected.minNetWorth}</span></p>}
+              {selected.suretyBond && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Surety Bond Collateral</span> <span className="font-mono text-sm">{selected.suretyBond}</span></p>}
+              {selected.sandboxAvailable !== undefined && (
+                <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Regulatory Sandbox</span> {selected.sandboxAvailable ? 'Exemption Available' : 'None'}</p>
+              )}
+              {selected.sandboxNotes && <p className="text-xs text-grey-dark dark:text-grey-light pl-3 border-l border-line italic">"{selected.sandboxNotes}"</p>}
+              {selected.tier !== 'Unresearched' && (
+                <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">NMLS Registration</span> {selected.nmlsRequired ? 'Required (Apply via NMLS)' : 'Not Used / Exempt'}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {selected.estCost && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Estimated Fee</span> <span className="font-mono">{selected.estCost}</span></p>}
+              {selected.estTimeline && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Estimated Pipeline duration</span> <span className="font-mono">{selected.estTimeline}</span></p>}
+              <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Detailed Notes</span> {selected.notes}</p>
+            </div>
+
+            {/* Technical YAML registry payload */}
+            <div className="pt-2 border-t border-line mt-3">
+              <details className="group cursor-pointer">
+                <summary className="text-[10px] font-bold uppercase tracking-wider text-grey select-none list-none flex items-center gap-1.5">
+                  <span className="transition-transform group-open:rotate-90">&rarr;</span>
+                  <span>[Technical Registry Payload]</span>
+                </summary>
+                <pre className="mt-2 p-2.5 rounded bg-ice-soft dark:bg-navy-deep text-[10px] font-mono overflow-x-auto text-navy dark:text-ice border border-line leading-normal">
+{`state_registry:
+  id: "${selected.id}"
+  name: "${selected.name}"
+  abbreviation: "${selected.abbreviation}"
+  regime: "${selected.regimeType}"
+  phase: "${selected.phase}"
+  net_worth: "${selected.minNetWorth || '0'}"
+  surety_bond: "${selected.suretyBond || '0'}"
+  sandbox: ${selected.sandboxAvailable}
+  nmls: ${selected.nmlsRequired}
+  authority: tier_${selected.sourceAuthority}`}
+                </pre>
+              </details>
+            </div>
+
+            <p className="text-[10px] text-grey pt-3 border-t border-line mt-4">Confidence: {selected.confidence} · Source authority tier {selected.sourceAuthority}</p>
           </div>
         )}
-      </Modal>
+      </InspectorDrawer>
     </div>
   );
 }

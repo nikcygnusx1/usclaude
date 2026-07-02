@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { products, requirements, domains } from '@/data';
-import { Badge, Modal } from '@/components/ui';
+import { Badge, InspectorDrawer } from '@/components/ui';
 import { toBadgeStatus } from '@/lib/status';
 import { Product } from '@/types/ontology';
 import { useFilterStore } from '@/stores/useFilterStore';
@@ -71,7 +71,7 @@ export function ProductMatrix() {
                   <td className="px-3 py-2">{p.category}</td>
                   <td className="px-3 py-2">
                     {p.howeyScore !== undefined ? (
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-mono ${
                         p.howeyScore >= 70 ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
                         p.howeyScore >= 40 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300' :
                         'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
@@ -81,7 +81,7 @@ export function ProductMatrix() {
                     ) : 'N/A'}
                   </td>
                   <td className="px-3 py-2"><Badge status={toBadgeStatus(p.status)}>{p.status}</Badge></td>
-                  <td className="px-3 py-2">{p.phase}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{p.phase}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
                       {p.requirements.map(rid => {
@@ -99,9 +99,9 @@ export function ProductMatrix() {
         </table>
       </div>
 
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ''}>
+      <InspectorDrawer isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ''}>
         {selected && (
-          <div className="space-y-3 text-sm text-navy dark:text-ice">
+          <div className="space-y-3 text-sm text-navy dark:text-ice leading-relaxed">
             <div className="flex flex-wrap gap-2">
               <Badge status={toBadgeStatus(selected.status)}>{selected.status}</Badge>
               <span className="text-xs rounded-full border border-line px-2 py-0.5">{selected.category}</span>
@@ -110,8 +110,8 @@ export function ProductMatrix() {
             <p>{selected.description}</p>
             {selected.risks.length > 0 && (
               <div>
-                <p className="font-semibold mb-1">Risks</p>
-                <ul className="list-disc list-inside text-grey-dark dark:text-grey-light space-y-1">
+                <p className="font-semibold text-xs text-grey uppercase tracking-wider mb-1">Identified Risks</p>
+                <ul className="list-disc list-inside text-xs text-grey-dark dark:text-grey-light space-y-1.5">
                   {selected.risks.map((r, i) => <li key={i}>{r}</li>)}
                 </ul>
               </div>
@@ -121,8 +121,8 @@ export function ProductMatrix() {
             {selected.howeyScore !== undefined && (
               <div className="pt-2 border-t border-line mt-2 space-y-2">
                 <p className="font-semibold flex items-center gap-2">
-                  <span>Howey Securities Probability Score:</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                  <span className="text-xs text-grey uppercase tracking-wider">Howey Securities Score</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold font-mono ${
                     selected.howeyScore >= 70 ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
                     selected.howeyScore >= 40 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300' :
                     'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
@@ -138,9 +138,28 @@ export function ProductMatrix() {
                 )}
               </div>
             )}
+
+            {/* Technical YAML registry payload */}
+            <div className="pt-2 border-t border-line mt-3">
+              <details className="group cursor-pointer">
+                <summary className="text-[10px] font-bold uppercase tracking-wider text-grey select-none list-none flex items-center gap-1.5">
+                  <span className="transition-transform group-open:rotate-90">&rarr;</span>
+                  <span>[Technical Registry Payload]</span>
+                </summary>
+                <pre className="mt-2 p-2.5 rounded bg-ice-soft dark:bg-navy-deep text-[10px] font-mono overflow-x-auto text-navy dark:text-ice border border-line leading-normal">
+{`product_registry:
+  id: "${selected.id}"
+  category: "${selected.category}"
+  phase: "${selected.phase}"
+  howey_securities_risk: "${selected.howeyScore}%"
+  required_gates: ${JSON.stringify(selected.requirements)}
+  risks_count: ${selected.risks.length}`}
+                </pre>
+              </details>
+            </div>
           </div>
         )}
-      </Modal>
+      </InspectorDrawer>
     </div>
   );
 }

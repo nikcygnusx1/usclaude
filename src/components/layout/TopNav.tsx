@@ -20,9 +20,30 @@ export function TopNav() {
         {breadcrumbs.length === 0 ? <span className="ml-1">Dashboard</span> : breadcrumbs.map((c,i) => <span key={c} className="ml-1">{c}{i<breadcrumbs.length-1?'/':''}</span>)}
       </nav>
       <div className="ml-auto flex items-center gap-3">
-        <input type="text" placeholder="Search..." value={searchQuery} onChange={e => setFilter('searchQuery', e.target.value)} className="h-8 w-48 rounded-md border border-line bg-ice-soft pl-2 text-sm" />
-        <button onClick={toggleDarkMode} aria-label="Dark mode">{darkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
-        <button aria-label="User"><User size={18} /></button>
+        <input
+          type="text"
+          placeholder="Search..."
+          value={searchQuery}
+          onChange={e => setFilter('searchQuery', e.target.value)}
+          className="h-8 w-48 rounded-md border border-line bg-ice-soft dark:bg-navy-deep pl-3 text-sm focus:outline-none focus:ring-1 focus:ring-navy dark:focus:ring-ice text-navy dark:text-ice placeholder-grey/50"
+        />
+        <button
+          onClick={toggleDarkMode}
+          className="rounded-full p-1.5 text-grey hover:bg-ice-soft dark:hover:bg-ice-soft/20 hover:text-navy dark:hover:text-ice transition-all duration-300 transform active:scale-95"
+          aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {darkMode ? (
+            <Sun size={18} className="text-status-conditional transition-transform duration-500 hover:rotate-45" />
+          ) : (
+            <Moon size={18} className="text-grey-dark transition-transform duration-500 hover:-rotate-12" />
+          )}
+        </button>
+        <button
+          className="rounded-full p-1.5 text-grey hover:bg-ice-soft dark:hover:bg-ice-soft/20 hover:text-navy dark:hover:text-ice transition-colors"
+          aria-label="User profile"
+        >
+          <User size={18} />
+        </button>
       </div>
     </header>
   );

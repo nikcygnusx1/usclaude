@@ -5,6 +5,8 @@ import { ontologyGraph } from '@/data/ontology';
 import { useFilterStore } from '@/stores/useFilterStore';
 import { RegulatoryNode, Status, Requirement } from '@/types/ontology';
 import { domains } from '@/data/domains';
+import { clsx } from 'clsx';
+import React from 'react';
 
 const statusColor: Record<Status, string> = {
   Ready: '#10b981',
@@ -109,27 +111,44 @@ export function useGraph() {
     const isReq = n.type === 'requirement';
     const req = isReq ? (n.data as Requirement) : null;
     const isPreempted = clarityEnacted && req?.preemptedUnderClarity;
+    const activeColor = statusColor[n.status];
 
     return {
       id: n.id,
       type: 'default',
       position: { x: n.x - n.w / 2, y: n.y - 22 },
       data: {
-        label: isPreempted ? `[Preempted] ${n.label}` : n.label,
+        label: React.createElement(
+          'div',
+          { className: 'flex items-center gap-2 justify-start font-mono text-[10px]' },
+          React.createElement('span', {
+            className: clsx(
+              'h-1.5 w-1.5 rounded-full shrink-0',
+              n.status === 'Blocked' && 'animate-pulse-beacon'
+            ),
+            style: {
+              backgroundColor: isPreempted ? '#cbd5e1' : activeColor,
+              boxShadow: isPreempted ? 'none' : `0 0 6px ${activeColor}`
+            }
+          }),
+          React.createElement('span', { className: 'truncate' }, isPreempted ? `[Preempted] ${n.label}` : n.label)
+        ),
         node: n,
       },
       sourcePosition: Position.Right,
       targetPosition: Position.Left,
       style: {
         width: n.w,
-        borderRadius: 8,
-        border: isPreempted ? `2px dashed #94a3b8` : `2px solid ${statusColor[n.status]}`,
+        borderRadius: 6,
+        border: isPreempted ? `1px dashed #cbd5e1` : `1px solid ${activeColor}`,
         background: 'var(--card)',
         color: isPreempted ? '#94a3b8' : 'var(--navy)',
-        fontSize: 12,
-        fontWeight: 500,
-        padding: '6px 10px',
-        opacity: isPreempted ? 0.6 : 1,
+        fontSize: 10,
+        fontWeight: 600,
+        padding: '6px 8px',
+        opacity: isPreempted ? 0.65 : 1,
+        boxShadow: isPreempted ? 'none' : `0 0 8px ${activeColor}15`,
+        textAlign: 'left'
       },
     };
   });
@@ -146,10 +165,11 @@ export function useGraph() {
       type: 'smoothstep',
       animated: e.type === 'requires' && !isPreempted,
       label: e.type,
-      labelStyle: { fontSize: 10, fill: isPreempted ? '#cbd5e1' : '#64748b' },
+      labelStyle: { fontSize: 8, fill: isPreempted ? '#cbd5e1' : '#64748b', fontFamily: 'monospace' },
       style: {
         stroke: isPreempted ? '#cbd5e1' : '#94a3b8',
         strokeDasharray: isPreempted ? '5,5' : undefined,
+        strokeWidth: 1.5,
       },
       markerEnd: { type: MarkerType.ArrowClosed, color: isPreempted ? '#cbd5e1' : '#94a3b8' },
     };
