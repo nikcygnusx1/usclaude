@@ -1,0 +1,8 @@
+@import './tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  body { @apply bg-ice text-navy font-sans antialiased; }
+  .dark body { @apply bg-navy-deep text-ice; }
+}
