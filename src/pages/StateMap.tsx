@@ -11,7 +11,7 @@ import { Map, SlidersHorizontal, Info, RefreshCw } from 'lucide-react';
 
 export function StateMap() {
   const { addAuditLog } = useAuditStore();
-  const { selectedStatuses, selectedPhases, clarityEnacted } = useFilterStore();
+  const { selectedStatuses, selectedPhases, clarityEnacted, spdiEquivalence } = useFilterStore();
   const [selectedState, setSelectedState] = useState<State | null>(null);
 
   // Filters State
@@ -59,7 +59,7 @@ export function StateMap() {
     states.forEach(s => {
       const isUnresearched = s.tier === 'Unresearched';
       const isActive = filteredStates.some(x => x.id === s.id);
-      const effectiveStatus = (clarityEnacted && s.nmlsRequired) ? 'Ready' : s.status;
+      const effectiveStatus = (clarityEnacted && s.nmlsRequired) || (spdiEquivalence && s.abbreviation === 'NY') ? 'Ready' : s.status;
 
       let fill = 'rgb(var(--grey))'; // default slate / unverified / deferred
       if (isUnresearched) {
@@ -211,7 +211,7 @@ export function StateMap() {
       {/* Slide-out State Inspector Drawer */}
       <InspectorDrawer isOpen={!!selectedState} onClose={() => setSelectedState(null)} title={selectedState?.name ?? ''}>
         {selectedState && (() => {
-          const effectiveStatus = (clarityEnacted && selectedState.nmlsRequired) ? 'Ready' : selectedState.status;
+          const effectiveStatus = (clarityEnacted && selectedState.nmlsRequired) || (spdiEquivalence && selectedState.abbreviation === 'NY') ? 'Ready' : selectedState.status;
           return (
             <div className="space-y-4 text-xs leading-relaxed text-navy dark:text-ice">
               <div className="flex flex-wrap gap-2">

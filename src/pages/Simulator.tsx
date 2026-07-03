@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useAuditStore } from '@/stores/useAuditStore';
+import { useFilterStore } from '@/stores/useFilterStore';
 import { clsx } from 'clsx';
 import { states, products } from '@/data';
 
@@ -33,15 +34,31 @@ function formatUSD(amount: number): string {
 }
 
 function useSimulatorOptions(): OptionMetrics[] {
+  const { clarityEnacted, spdiEquivalence } = useFilterStore();
+
   return useMemo(() => {
     // Option A: Non-Custodial — sandbox states or Phase 1 states
     const optAProduct = products.find(p => p.id === 'NONCUSTODIAL_WALLET');
     const optAStates = states.filter(
       s => s.sandboxAvailable === true || s.phase === 'Phase 1'
     );
-    const optANmls = optAStates.filter(s => s.nmlsRequired).length;
-    const optACost = optAStates.reduce((sum, s) => sum + parseCost(s.estCost), 0);
-    const optABonds = optAStates.reduce((sum, s) => sum + parseCost(s.suretyBond), 0);
+    const optANmls = optAStates.filter(s => {
+      if (clarityEnacted && s.nmlsRequired) return false;
+      return s.nmlsRequired;
+    }).length;
+
+    const optACost = optAStates.reduce((sum, s) => {
+      if (clarityEnacted && s.nmlsRequired) return sum;
+      if (s.abbreviation === 'NY' && spdiEquivalence) return sum;
+      return sum + parseCost(s.estCost);
+    }, 0);
+
+    const optABonds = optAStates.reduce((sum, s) => {
+      if (clarityEnacted && s.nmlsRequired) return sum;
+      if (s.abbreviation === 'NY' && spdiEquivalence) return sum;
+      return sum + parseCost(s.suretyBond);
+    }, 0);
+
     const optASandboxes = optAStates.filter(s => s.sandboxAvailable).length;
     const optAHowey = optAProduct?.howeyScore ?? 15;
 
@@ -50,23 +67,63 @@ function useSimulatorOptions(): OptionMetrics[] {
     const optBStates = states.filter(
       s => (s.phase === 'Phase 1' || s.phase === 'Phase 2') && s.suretyBond !== undefined
     );
-    const optBNmls = optBStates.filter(s => s.nmlsRequired).length;
-    const optBCost = optBStates.reduce((sum, s) => sum + parseCost(s.estCost), 0);
-    const optBBonds = optBStates.reduce((sum, s) => sum + parseCost(s.suretyBond), 0);
+    const optBNmls = optBStates.filter(s => {
+      if (clarityEnacted && s.nmlsRequired) return false;
+      return s.nmlsRequired;
+    }).length;
+
+    const optBCost = optBStates.reduce((sum, s) => {
+      if (clarityEnacted && s.nmlsRequired) return sum;
+      if (s.abbreviation === 'NY' && spdiEquivalence) return sum;
+      return sum + parseCost(s.estCost);
+    }, 0);
+
+    const optBBonds = optBStates.reduce((sum, s) => {
+      if (clarityEnacted && s.nmlsRequired) return sum;
+      if (s.abbreviation === 'NY' && spdiEquivalence) return sum;
+      return sum + parseCost(s.suretyBond);
+    }, 0);
+
     const optBSandboxes = optBStates.filter(s => s.sandboxAvailable).length;
-    const optBMaxNetWorth = Math.max(...optBStates.map(s => parseCost(s.minNetWorth)).filter(v => v > 0), 0);
+    
+    const optBMaxNetWorth = Math.max(...optBStates.map(s => {
+      if (s.abbreviation === 'NY' && spdiEquivalence) return 0;
+      return parseCost(s.minNetWorth);
+    }).filter(v => v > 0), 0);
     const optBHowey = optBProduct?.howeyScore ?? 25;
 
     // Option C: Full Exchange — all researched states
     const optCProduct = products.find(p => p.id === 'EXCHANGE');
     const optCStates = states.filter(s => s.tier !== 'Unresearched');
-    const optCNmls = optCStates.filter(s => s.nmlsRequired).length;
-    const optCCost = optCStates.reduce((sum, s) => sum + parseCost(s.estCost), 0);
-    const optCBonds = optCStates.reduce((sum, s) => sum + parseCost(s.suretyBond), 0);
+    const optCNmls = optCStates.filter(s => {
+      if (clarityEnacted && s.nmlsRequired) return false;
+      return s.nmlsRequired;
+    }).length;
+
+    const optCCost = optCStates.reduce((sum, s) => {
+      if (clarityEnacted && s.nmlsRequired) return sum;
+      if (s.abbreviation === 'NY' && spdiEquivalence) return sum;
+      return sum + parseCost(s.estCost);
+    }, 0);
+
+    const optCBonds = optCStates.reduce((sum, s) => {
+      if (clarityEnacted && s.nmlsRequired) return sum;
+      if (s.abbreviation === 'NY' && spdiEquivalence) return sum;
+      return sum + parseCost(s.suretyBond);
+    }, 0);
+
     const optCSandboxes = optCStates.filter(s => s.sandboxAvailable).length;
-    const optCMaxNetWorth = Math.max(...optCStates.map(s => parseCost(s.minNetWorth)).filter(v => v > 0), 0);
+    const optCMaxNetWorth = Math.max(...optCStates.map(s => {
+      if (s.abbreviation === 'NY' && spdiEquivalence) return 0;
+      return parseCost(s.minNetWorth);
+    }).filter(v => v > 0), 0);
     const optCHowey = optCProduct?.howeyScore ?? 45;
-    const optCBlockers = optCStates.filter(s => s.status === 'Blocked').length;
+    
+    const optCBlockers = optCStates.filter(s => {
+      if (clarityEnacted && s.nmlsRequired) return false;
+      if (s.abbreviation === 'NY' && spdiEquivalence) return false;
+      return s.status === 'Blocked';
+    }).length;
 
     return [
       {
@@ -76,11 +133,15 @@ function useSimulatorOptions(): OptionMetrics[] {
         fees: optACost > 0 ? formatUSD(optACost) : '$25,000',
         bonds: optABonds > 0 ? formatUSD(optABonds) : '$0',
         netWorth: '$0 (No corporate MTL requirements)',
-        nmlsCount: optANmls || 1,
-        sandboxes: optASandboxes || 1,
+        nmlsCount: optANmls,
+        sandboxes: optASandboxes,
         howeyAvg: `${optAHowey}% (${optAHowey >= 75 ? 'Critical' : optAHowey >= 45 ? 'High' : optAHowey >= 25 ? 'Medium' : 'Low'} legal risk)`,
         unlockedStates: optAStates.length > 0 ? optAStates.map(s => s.abbreviation) : ['MT'],
-        blockersCount: optAStates.filter(s => s.status === 'Blocked').length || 1,
+        blockersCount: optAStates.filter(s => {
+          if (clarityEnacted && s.nmlsRequired) return false;
+          if (s.abbreviation === 'NY' && spdiEquivalence) return false;
+          return s.status === 'Blocked';
+        }).length,
       },
       {
         id: 'spdi-custody',
@@ -88,12 +149,16 @@ function useSimulatorOptions(): OptionMetrics[] {
         desc: 'Establish Wyoming Special Purpose Depository Institution (SPDI) trust custody routing to avoid full multi-state MTL triggers.',
         fees: optBCost > 0 ? formatUSD(optBCost) : '$120,000',
         bonds: optBBonds > 0 ? formatUSD(optBBonds) : '$500,000',
-        netWorth: optBMaxNetWorth > 0 ? `${formatUSD(optBMaxNetWorth)} (Wyoming statutory minimum)` : '$5,000,000 (Wyoming statutory minimum)',
-        nmlsCount: optBNmls || 5,
-        sandboxes: optBSandboxes || 2,
+        netWorth: optBMaxNetWorth > 0 ? `${formatUSD(optBMaxNetWorth)} (Wyoming statutory minimum)` : '$0 (Exempted under Trust Reciprocity)',
+        nmlsCount: optBNmls,
+        sandboxes: optBSandboxes,
         howeyAvg: `${optBHowey}% (${optBHowey >= 75 ? 'Critical' : optBHowey >= 45 ? 'High' : optBHowey >= 25 ? 'Medium' : 'Low'} legal risk)`,
         unlockedStates: optBStates.length > 0 ? optBStates.map(s => s.abbreviation) : ['WY', 'MT', 'CO', 'UT'],
-        blockersCount: optBStates.filter(s => s.status === 'Blocked').length || 3,
+        blockersCount: optBStates.filter(s => {
+          if (clarityEnacted && s.nmlsRequired) return false;
+          if (s.abbreviation === 'NY' && spdiEquivalence) return false;
+          return s.status === 'Blocked';
+        }).length,
       },
       {
         id: 'custodial-exchange',
@@ -101,15 +166,15 @@ function useSimulatorOptions(): OptionMetrics[] {
         desc: 'Full custodial fiat-to-crypto retail exchange platform. Triggers absolute state Money Transmitter Licenses (MTLs) and NY BitLicense.',
         fees: optCCost > 0 ? formatUSD(optCCost) : '$840,000',
         bonds: optCBonds > 0 ? formatUSD(optCBonds) : '$4,250,000',
-        netWorth: optCMaxNetWorth > 0 ? `${formatUSD(optCMaxNetWorth)} (Aggregate multi-state ceiling)` : '$15,000,000 (Aggregate multi-state ceiling)',
-        nmlsCount: optCNmls || 46,
+        netWorth: optCMaxNetWorth > 0 ? `${formatUSD(optCMaxNetWorth)} (Aggregate multi-state ceiling)` : '$0 (Exempted under preemption)',
+        nmlsCount: optCNmls,
         sandboxes: optCSandboxes,
         howeyAvg: `${optCHowey}% (${optCHowey >= 75 ? 'Critical' : optCHowey >= 45 ? 'High' : optCHowey >= 25 ? 'Medium' : 'Low'} legal risk)`,
         unlockedStates: optCStates.length > 0 ? ['All ' + optCStates.length + ' researched states'] : ['All 50 states (excluding restricted territories)'],
-        blockersCount: optCBlockers || 22,
+        blockersCount: optCBlockers,
       },
     ];
-  }, []);
+  }, [clarityEnacted, spdiEquivalence]);
 }
 
 export function Simulator() {

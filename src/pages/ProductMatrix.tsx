@@ -9,7 +9,8 @@ import { clsx } from 'clsx';
 
 export function ProductMatrix() {
   const navigate = useNavigate();
-  const { addAuditLog } = useAuditStore();
+  const { addAuditLog, safeHarborToggles } = useAuditStore();
+  const commodityExempt = safeHarborToggles?.commodityExempt ?? false;
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -141,24 +142,30 @@ export function ProductMatrix() {
                     </td>
                     <td className="py-3 px-3 font-mono">{p.phase}</td>
                     <td className="py-3 px-3">
-                      {p.howeyScore !== undefined ? (
-                        <div className="flex items-center gap-2 max-w-[120px]">
-                          <div className="flex-1 h-1.5 bg-line rounded overflow-hidden">
-                            <div
-                              className={clsx(
-                                'h-full rounded transition-all',
-                                p.howeyScore >= 70
-                                  ? 'bg-status-blocked'
-                                  : p.howeyScore >= 40
-                                  ? 'bg-status-conditional'
-                                  : 'bg-status-ready'
-                              )}
-                              style={{ width: `${p.howeyScore}%` }}
-                            />
+                      {p.howeyScore !== undefined ? (() => {
+                        const effectiveHowey = commodityExempt ? Math.max(0, Math.round(p.howeyScore * 0.75)) : p.howeyScore;
+                        return (
+                          <div className="flex items-center gap-2 max-w-[120px]">
+                            <div className="flex-1 h-1.5 bg-line rounded overflow-hidden">
+                              <div
+                                className={clsx(
+                                  'h-full rounded transition-all',
+                                  effectiveHowey >= 70
+                                    ? 'bg-status-blocked'
+                                    : effectiveHowey >= 40
+                                    ? 'bg-status-conditional'
+                                    : 'bg-status-ready'
+                                )}
+                                style={{ width: `${effectiveHowey}%` }}
+                              />
+                            </div>
+                            <span className="font-mono font-bold text-[10px] w-12 shrink-0 flex items-center gap-0.5">
+                              {effectiveHowey}%
+                              {commodityExempt && <span className="text-[7px] text-cyan-500 font-extrabold" title="Safe Harbor Applied">*</span>}
+                            </span>
                           </div>
-                          <span className="font-mono font-bold text-[10px] w-8 shrink-0">{p.howeyScore}%</span>
-                        </div>
-                      ) : (
+                        );
+                      })() : (
                         <span className="text-grey font-mono">N/A</span>
                       )}
                     </td>

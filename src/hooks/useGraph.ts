@@ -2,11 +2,12 @@ import { useMemo } from 'react';
 import { Node, Edge, MarkerType, Position } from 'reactflow';
 import dagre from 'dagre';
 import { ontologyGraph } from '@/data/ontology';
-import { RegulatoryNode, Status, Requirement, Phase } from '@/types/ontology';
+import { RegulatoryNode, Status, Requirement, Product, State, Phase } from '@/types/ontology';
+import { useFilterStore } from '@/stores/useFilterStore';
+import { useAuditStore } from '@/stores/useAuditStore';
 
 const NODE_WIDTH = 250;
 const NODE_HEIGHT = 100;
-
 
 function layout(
   nodes: RegulatoryNode[],
@@ -26,8 +27,10 @@ function layout(
 }
 
 // Color Palette Maps
-const statusColors: Record<Status, string> = {
+const statusColors: Record<Status | 'Complete' | 'Counsel Review', string> = {
   Ready: 'rgb(var(--green))',
+  Complete: 'rgb(var(--green))',
+  'Counsel Review': 'rgb(var(--green))',
   Conditional: 'rgb(var(--amber))',
   Blocked: 'rgb(var(--red))',
   'Needs verification': 'rgb(var(--grey))',
@@ -54,6 +57,13 @@ const getDomainColor = (domainName: string) => {
   return 'rgb(var(--grey))';
 };
 
+function mapReadinessToStatus(rs: string): Status {
+  if (rs === 'Complete') return 'Ready';
+  if (rs === 'Counsel Review') return 'Conditional';
+  if (rs === 'In Progress') return 'Needs verification';
+  return 'Deferred'; // for 'Not Started'
+}
+
 interface UseGraphParams {
   layoutDirection: 'LR' | 'TB';
   colorBy: 'status' | 'phase' | 'domain';
@@ -62,6 +72,10 @@ interface UseGraphParams {
 }
 
 export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep }: UseGraphParams) {
+  const { clarityEnacted, spdiEquivalence } = useFilterStore();
+  const { readinessStatusOverrides, safeHarborToggles } = useAuditStore();
+  const commodityExempt = safeHarborToggles?.commodityExempt ?? false;
+
   // Step thresholds for timeline scrubbing
   const allowedPhases = useMemo(() => {
     const phaseThresholds: Record<number, Phase[]> = {
@@ -94,11 +108,43 @@ export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep 
   const laidOut = useMemo(() => layout(filtered.nodes, filtered.edges, layoutDirection), [filtered, layoutDirection]);
 
   const nodes: Node[] = laidOut.map(n => {
+    // Dynamic status & score calculation based on GRC state overrides
+    let nodeStatus = n.status;
+    let nodeData = { ...n.data };
+
+    if (n.type === 'requirement') {
+      const override = readinessStatusOverrides[n.id];
+      nodeStatus = override ? mapReadinessToStatus(override) : n.status;
+      if (clarityEnacted && (n.id === 'STATE_MTL' || n.id === 'CA_DFAL_REQ' || n.id === 'TOKEN_LEGAL_OPINION')) {
+        nodeStatus = 'Ready';
+      }
+      if (safeHarborToggles?.defiExempt && n.id === 'SURV_TRUST') {
+        nodeStatus = 'Ready';
+      }
+      if (safeHarborToggles?.micaExempt && (n.id === 'CORP_PARENT' || n.id === 'CORP_CFIUS')) {
+        nodeStatus = 'Ready';
+      }
+    } else if (n.type === 'state') {
+      const s = n.data as State;
+      if (clarityEnacted && s.nmlsRequired) {
+        nodeStatus = 'Ready';
+      }
+      if (spdiEquivalence && s.abbreviation === 'NY') {
+        nodeStatus = 'Ready';
+      }
+    } else if (n.type === 'product') {
+      const p = { ...n.data } as Product;
+      if (commodityExempt && p.howeyScore !== undefined) {
+        p.howeyScore = Math.max(0, Math.round(p.howeyScore * 0.75));
+      }
+      nodeData = p;
+    }
+
     // Determine dynamic painting color based on colorBy configuration
     let activeColor = '#64748b'; // default slate
 
     if (colorBy === 'status') {
-      activeColor = statusColors[n.status] || '#64748b';
+      activeColor = statusColors[nodeStatus] || '#64748b';
     } else if (colorBy === 'phase') {
       activeColor = phaseColors[n.phase] || '#64748b';
     } else if (colorBy === 'domain') {
@@ -106,10 +152,8 @@ export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep 
         const req = n.data as Requirement;
         activeColor = getDomainColor(req.domain);
       } else if (n.type === 'license') {
-        // Group license under State MTL domain color
         activeColor = getDomainColor('State money transmission and consumer protection');
       } else if (n.type === 'product') {
-        // Classify product under Listing and Token Domain color
         activeColor = getDomainColor('Asset listing and token classification');
       } else if (n.type === 'state') {
         activeColor = getDomainColor('State money transmission and consumer protection');
@@ -120,14 +164,20 @@ export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep 
 
     const isReq = n.type === 'requirement';
     const req = isReq ? (n.data as Requirement) : null;
-    const isPreempted = isClarityStepActive && req?.preemptedUnderClarity;
+    const isPreempted = (isClarityStepActive || clarityEnacted) && req?.preemptedUnderClarity;
+
+    // Mutate the visual label to show preemption or overrides
+    let label = n.label;
+    if (isPreempted) {
+      label = `[PREEMPTED] ${n.label}`;
+    }
 
     return {
       id: n.id,
-      type: 'custom', // custom node component in components/ui/CustomOntologyNode.tsx
+      type: 'custom',
       position: { x: n.x - NODE_WIDTH / 2, y: n.y - NODE_HEIGHT / 2 },
       data: {
-        node: n,
+        node: { ...n, status: nodeStatus as Status, label, data: nodeData },
         activeColor,
         isPreempted,
       },
@@ -146,7 +196,7 @@ export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep 
   const edges: Edge[] = filtered.edges.map(e => {
     // Check if the target is a preempted requirement
     const targetNode = ontologyGraph.nodes.find(n => n.id === e.target);
-    const isPreempted = isClarityStepActive && targetNode?.type === 'requirement' && (targetNode.data as Requirement).preemptedUnderClarity;
+    const isPreempted = (isClarityStepActive || clarityEnacted) && targetNode?.type === 'requirement' && (targetNode.data as Requirement).preemptedUnderClarity;
 
     return {
       id: e.id,

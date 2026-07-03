@@ -60,9 +60,13 @@ function StatCard({ icon: Icon, label, value, hint }: { icon: any; label: string
 }
 
 export function Dashboard() {
-  const { selectedStatuses, selectedPhases, clarityEnacted } = useFilterStore();
+  const { selectedStatuses, selectedPhases, clarityEnacted, spdiEquivalence } = useFilterStore();
 
-  const getEffectiveStatus = (s: State) => (clarityEnacted && s.nmlsRequired) ? 'Ready' : s.status;
+  const getEffectiveStatus = (s: State) => {
+    if (clarityEnacted && s.nmlsRequired) return 'Ready';
+    if (spdiEquivalence && s.abbreviation === 'NY') return 'Ready';
+    return s.status;
+  };
 
   const filteredStates = useMemo(() => {
     return states.filter(s => {
@@ -71,7 +75,7 @@ export function Dashboard() {
       const matchPhase = selectedPhases.length === 0 || selectedPhases.includes(s.phase);
       return matchStatus && matchPhase;
     });
-  }, [selectedStatuses, selectedPhases, clarityEnacted]);
+  }, [selectedStatuses, selectedPhases, clarityEnacted, spdiEquivalence]);
 
   const researched = useMemo(() => filteredStates.filter(s => s.tier !== 'Unresearched'), [filteredStates]);
   const readyOrConditional = useMemo(() => {
@@ -79,8 +83,21 @@ export function Dashboard() {
       const effectiveStatus = getEffectiveStatus(s);
       return effectiveStatus === 'Ready' || effectiveStatus === 'Conditional';
     });
-  }, [filteredStates, clarityEnacted]);
-  const blockers = useMemo(() => requirements.filter(r => r.status === 'Blocked'), []);
+  }, [filteredStates, clarityEnacted, spdiEquivalence]);
+
+  const blockers = useMemo(() => {
+    return requirements.filter(r => {
+      let status = r.status;
+      if (clarityEnacted && r.preemptedUnderClarity) {
+        status = 'Ready';
+      }
+      if (spdiEquivalence && r.id === 'NY_BITLICENSE_REQ') {
+        status = 'Ready';
+      }
+      return status === 'Blocked';
+    });
+  }, [clarityEnacted, spdiEquivalence]);
+
   const phase1States = useMemo(() => filteredStates.filter(s => s.phase === 'Phase 1' && s.tier !== 'Unresearched'), [filteredStates]);
   const criticalStates = useMemo(() => filteredStates.filter(s => s.priority === 'Critical' || s.priority === 'High').slice(0, 5), [filteredStates]);
 

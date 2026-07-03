@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useAuditStore } from '@/stores/useAuditStore';
+import { useFilterStore } from '@/stores/useFilterStore';
 import { CalendarRange, Network } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -108,22 +109,42 @@ const LAUNCH_MILESTONES: Milestone[] = [
 
 export function Roadmap() {
   useAuditStore();
+  const { clarityEnacted, spdiEquivalence } = useFilterStore();
   const [hoveredMilestoneId, setHoveredMilestoneId] = useState<string | null>(null);
+
+  // Compute dynamic milestones based on active safe harbors / preemption rules
+  const activeMilestones = useMemo(() => {
+    return LAUNCH_MILESTONES.map(m => {
+      const milestone = { ...m };
+      if (clarityEnacted) {
+        if (milestone.id === 'mt-mtl' || milestone.id === 'mtl-wave-1') {
+          milestone.duration = 0; // preempted to immediate
+          milestone.name = `[PREEMPTED] ${milestone.name.replace(/^\d+\.\s*/, '')}`;
+        }
+      }
+      if (spdiEquivalence) {
+        if (milestone.id === 'ny-bitlicense') {
+          milestone.duration = 2; // compressed DFS review under SPDI trust equivalence
+          milestone.name = `[ACCELERATED] ${milestone.name.replace(/^\d+\.\s*/, '')}`;
+        }
+      }
+      return milestone;
+    });
+  }, [clarityEnacted, spdiEquivalence]);
 
   // Compute dependency highlights
   const highlightedIds = useMemo(() => {
     if (!hoveredMilestoneId) return new Set<string>();
 
-    const target = LAUNCH_MILESTONES.find(m => m.id === hoveredMilestoneId);
+    const target = activeMilestones.find(m => m.id === hoveredMilestoneId);
     if (!target) return new Set<string>();
 
-    // Highlight target itself, its parents, and its children
     return new Set<string>([
       hoveredMilestoneId,
       ...target.dependencies,
       ...target.gatedItems,
     ]);
-  }, [hoveredMilestoneId]);
+  }, [hoveredMilestoneId, activeMilestones]);
 
   const handleMilestoneHover = (id: string | null) => {
     setHoveredMilestoneId(id);
@@ -151,7 +172,7 @@ export function Roadmap() {
           ))}
         </div>
 
-        {/* Gantt Tracks Viewport (Relative position container to layout vectors) */}
+        {/* Gantt Tracks Viewport */}
         <div className="flex-1 min-h-[300px] py-6 relative select-none">
           
           {/* Background vertical columns helper grid lines */}
@@ -164,29 +185,27 @@ export function Roadmap() {
           {/* SVG Dependency Vector Overlays */}
           <svg className="absolute inset-0 h-full w-full pointer-events-none z-10" viewBox="0 0 1000 200" preserveAspectRatio="none">
             {hoveredMilestoneId && (() => {
-              const target = LAUNCH_MILESTONES.find(m => m.id === hoveredMilestoneId);
+              const target = activeMilestones.find(m => m.id === hoveredMilestoneId);
               if (!target) return null;
 
-              // Find coordinates of target block (viewBox: 1000 x 200)
               const targetCol = target.startMonth - 1;
-              const targetW = target.duration;
+              const targetW = target.duration || 0.1; // fallback if 0 duration
               const targetRow = target.row;
 
               const tX = ((targetCol + targetW / 2) / 24) * 1000;
               const tY = (targetRow * 60) - 20;
 
               return target.dependencies.map(parentId => {
-                const parent = LAUNCH_MILESTONES.find(m => m.id === parentId);
+                const parent = activeMilestones.find(m => m.id === parentId);
                 if (!parent) return null;
 
                 const pCol = parent.startMonth - 1;
-                const pW = parent.duration;
+                const pW = parent.duration || 0.1;
                 const pRow = parent.row;
 
                 const pX = ((pCol + pW / 2) / 24) * 1000;
                 const pY = (pRow * 60) - 20;
 
-                // Draw curve path using consistent viewBox coordinates
                 return (
                   <path
                     key={parentId}
@@ -206,14 +225,13 @@ export function Roadmap() {
           <div className="space-y-6 relative z-20">
             {/* Track 1 */}
             <div className="h-[200px] relative w-full">
-              {LAUNCH_MILESTONES.map(m => {
+              {activeMilestones.map(m => {
                 const isHovered = hoveredMilestoneId === m.id;
                 const isHighlighted = highlightedIds.has(m.id);
                 const hasActiveTracing = hoveredMilestoneId !== null;
 
-                // Calculate CSS positioning parameters
                 const leftPct = ((m.startMonth - 1) / 24) * 100;
-                const widthPct = (m.duration / 24) * 100;
+                const widthPct = Math.max(0.5, (m.duration / 24) * 100); // minimum width for 0m duration bars
 
                 return (
                   <button
@@ -230,7 +248,7 @@ export function Roadmap() {
                       isHovered && 'ring-2 ring-cyan-500/50 scale-[1.02] border-cyan-500 z-30',
                       isHighlighted && !isHovered && 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
                       !isHighlighted && hasActiveTracing && 'opacity-15 grayscale scale-95 pointer-events-none',
-                      !hasActiveTracing && 'border-line bg-card hover:border-grey'
+                      !hasActiveTracing && (m.duration === 0 ? 'border-dashed border-status-ready bg-status-ready/10 text-status-ready' : 'border-line bg-card hover:border-grey')
                     )}
                   >
                     <div className="flex justify-between items-center w-full leading-none">
@@ -238,7 +256,7 @@ export function Roadmap() {
                       <span className="text-[9px] font-mono text-grey uppercase tracking-wider">{m.phase.replace('Phase ', 'P')}</span>
                     </div>
                     <div className="text-[9px] text-grey-dark dark:text-grey-light font-mono truncate leading-none mt-0.5">
-                      M{m.startMonth} - M{m.startMonth + m.duration} ({m.duration}m)
+                      {m.duration === 0 ? 'Exempt / Immediate' : `M${m.startMonth} - M${m.startMonth + m.duration} (${m.duration}m)`}
                     </div>
                   </button>
                 );
