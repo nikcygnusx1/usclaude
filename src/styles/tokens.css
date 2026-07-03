@@ -1,54 +1,34 @@
 :root {
-  --navy: #0f172a;
-  --navy-deep: #020617;
-  --ice: #f8fafc;
-  --ice-soft: #f1f5f9;
-  --grey: #64748b;
-  --grey-light: #cbd5e1;
-  --grey-dark: #334155;
-  --line: #e2e8f0;
-  --card: #ffffff;
+  --navy: 15 23 42;          /* #0f172a */
+  --navy-deep: 2 6 23;       /* #020617 */
+  --ice: 248 250 252;        /* #f8fafc */
+  --ice-soft: 241 245 249;   /* #f1f5f9 */
+  --grey: 100 116 139;       /* #64748b */
+  --grey-light: 203 213 225; /* #cbd5e1 */
+  --grey-dark: 51 65 85;     /* #334155 */
+  --line: 226 232 240;       /* #e2e8f0 */
+  --card: 255 255 255;       /* #ffffff */
   
   /* Muted Status Colors - Professional Palettes */
-  --green: #0d9488;
-  --green-bg: rgba(13, 148, 136, 0.08);
-  --amber: #d97706;
-  --amber-bg: rgba(217, 119, 6, 0.08);
-  --red: #e11d48;
-  --red-bg: rgba(225, 29, 72, 0.08);
-  --indigo: #4f46e5;
-  --indigo-bg: rgba(79, 70, 229, 0.08);
-
-  --status-ready: var(--green);
-  --status-ready-bg: var(--green-bg);
-  --status-conditional: var(--amber);
-  --status-conditional-bg: var(--amber-bg);
-  --status-blocked: var(--red);
-  --status-blocked-bg: var(--red-bg);
-  --status-deferred: var(--grey);
-  --status-deferred-bg: var(--ice-soft);
-  --status-unverified: var(--indigo);
-  --status-unverified-bg: var(--indigo-bg);
+  --green: 13 148 136;       /* #0d9488 */
+  --amber: 217 119 6;        /* #d97706 */
+  --red: 225 29 72;          /* #e11d48 */
+  --indigo: 79 70 229;       /* #4f46e5 */
 }
 
 .dark {
-  --navy: #f8fafc;
-  --navy-deep: #090d16;
-  --ice: #0f172a;
-  --ice-soft: #1e293b;
-  --grey: #94a3b8;
-  --grey-light: #475569;
-  --grey-dark: #cbd5e1;
-  --line: #1e293b;
-  --card: #111827;
+  --navy: 248 250 252;       /* #f8fafc */
+  --navy-deep: 9 13 22;      /* #090d16 */
+  --ice: 15 23 42;           /* #0f172a */
+  --ice-soft: 30 41 59;      /* #1e293b */
+  --grey: 148 163 184;       /* #94a3b8 */
+  --grey-light: 71 85 105;   /* #475569 */
+  --grey-dark: 203 213 225;  /* #cbd5e1 */
+  --line: 30 41 59;          /* #1e293b */
+  --card: 15 23 42;          /* Slate-900 (#0f172a) for dark-theme coherence */
 
-  --green: #2dd4bf;
-  --green-bg: rgba(45, 212, 191, 0.12);
-  --amber: #fbbf24;
-  --amber-bg: rgba(251, 191, 36, 0.12);
-  --red: #fb7185;
-  --red-bg: rgba(251, 113, 133, 0.12);
-  --indigo: #818cf8;
-  --indigo-bg: rgba(129, 140, 248, 0.12);
+  --green: 45 212 191;       /* #2dd4bf */
+  --amber: 251 191 36;       /* #fbbf24 */
+  --red: 251 113 133;        /* #fb7185 */
+  --indigo: 129 140 248;     /* #818cf8 */
 }
-

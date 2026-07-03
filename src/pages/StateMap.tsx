@@ -61,17 +61,17 @@ export function StateMap() {
       const isActive = filteredStates.some(x => x.id === s.id);
       const effectiveStatus = (clarityEnacted && s.nmlsRequired) ? 'Ready' : s.status;
 
-      let fill = '#64748b'; // default slate / unverified / deferred
+      let fill = 'rgb(var(--grey))'; // default slate / unverified / deferred
       if (isUnresearched) {
-        fill = 'rgba(148, 163, 184, 0.25)'; // faint slate for unresearched
+        fill = 'rgba(var(--grey) / 0.25)'; // faint slate for unresearched
       } else if (!isActive) {
-        fill = 'rgba(148, 163, 184, 0.08)'; // transparent/hidden if filtered out
+        fill = 'rgba(var(--grey) / 0.08)'; // transparent/hidden if filtered out
       } else if (effectiveStatus === 'Ready') {
-        fill = '#0d9488'; // emerald-600/teal
+        fill = 'rgb(var(--green))'; 
       } else if (effectiveStatus === 'Blocked') {
-        fill = '#e11d48'; // rose-600
+        fill = 'rgb(var(--red))'; 
       } else if (effectiveStatus === 'Conditional') {
-        fill = '#d97706'; // amber-600
+        fill = 'rgb(var(--amber))'; 
       }
 
       config[s.abbreviation] = {

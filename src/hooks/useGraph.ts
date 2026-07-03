@@ -27,31 +27,31 @@ function layout(
 
 // Color Palette Maps
 const statusColors: Record<Status, string> = {
-  Ready: '#10b981', // Emerald Green
-  Conditional: '#f59e0b', // Amber
-  Blocked: '#ef4444', // Crimson Red
-  'Needs verification': '#64748b', // Slate Gray
-  Deferred: '#94a3b8', // Slate Silver
+  Ready: 'rgb(var(--green))',
+  Conditional: 'rgb(var(--amber))',
+  Blocked: 'rgb(var(--red))',
+  'Needs verification': 'rgb(var(--grey))',
+  Deferred: 'rgba(var(--grey) / 0.7)',
 };
 
 const phaseColors: Record<Phase, string> = {
-  'Pre-launch': '#3b82f6', // Blue
-  'Phase 1': '#10b981', // Emerald
-  'Phase 2': '#8b5cf6', // Purple
-  'Phase 3': '#ec4899', // Pink
-  'Post-CLARITY': '#f59e0b', // Amber
+  'Pre-launch': 'rgb(var(--indigo))',
+  'Phase 1': 'rgb(var(--green))',
+  'Phase 2': 'rgb(var(--indigo))',
+  'Phase 3': 'rgb(var(--red))',
+  'Post-CLARITY': 'rgb(var(--amber))',
 };
 
 const getDomainColor = (domainName: string) => {
-  if (domainName.includes('Entity')) return '#3b82f6';
-  if (domainName.includes('Federal')) return '#06b6d4';
-  if (domainName.includes('State')) return '#8b5cf6';
-  if (domainName.includes('Custody')) return '#10b981';
-  if (domainName.includes('Payments')) return '#ec4899';
-  if (domainName.includes('Asset')) return '#f59e0b';
-  if (domainName.includes('Surveillance')) return '#ef4444';
-  if (domainName.includes('Product')) return '#14b8a6';
-  return '#64748b';
+  if (domainName.includes('Entity')) return 'rgb(var(--indigo))';
+  if (domainName.includes('Federal')) return 'rgb(var(--green))';
+  if (domainName.includes('State')) return 'rgb(var(--indigo))';
+  if (domainName.includes('Custody')) return 'rgb(var(--green))';
+  if (domainName.includes('Payments')) return 'rgb(var(--indigo))';
+  if (domainName.includes('Asset')) return 'rgb(var(--amber))';
+  if (domainName.includes('Surveillance')) return 'rgb(var(--red))';
+  if (domainName.includes('Product')) return 'rgb(var(--green))';
+  return 'rgb(var(--grey))';
 };
 
 interface UseGraphParams {

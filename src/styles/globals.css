@@ -12,8 +12,8 @@
     @apply bg-navy-deep text-ice; 
   }
   
-  /* Smooth theme transitions for card, nav, and sidebar containers */
-  header, aside, main, div, button, select, input, table, th, td {
+  /* Apply smooth theme transitions selectively to shells to avoid layout thrashing */
+  header, aside, main, button, select, table, th, td {
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   }
 }

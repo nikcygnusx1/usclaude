@@ -69,7 +69,7 @@ export function Sidebar() {
               className={({ isActive }) =>
                 clsx(
                   'flex items-center gap-3 rounded-md px-2 py-2 text-sm relative',
-                  isActive ? 'bg-navy text-white' : 'text-navy hover:bg-ice-soft dark:text-ice dark:hover:bg-ice-soft/10'
+                  isActive ? 'bg-navy text-card' : 'text-navy hover:bg-ice-soft dark:text-ice dark:hover:bg-ice-soft/10'
                 )
               }
             >
@@ -99,11 +99,11 @@ export function Sidebar() {
             </button>
           )}
           <h3 className="text-[10px] font-bold uppercase tracking-wider text-grey mt-3 mb-1">Status</h3>
-          <div className="flex flex-wrap gap-1">{statuses.map(s => <button key={s} onClick={() => toggle(s, 'selectedStatuses', selectedStatuses)} className={clsx('text-xs border rounded-full px-2', selectedStatuses.includes(s) ? 'bg-navy text-white' : '')}>{s}</button>)}</div>
+          <div className="flex flex-wrap gap-1">{statuses.map(s => <button key={s} onClick={() => toggle(s, 'selectedStatuses', selectedStatuses)} className={clsx('text-xs border rounded-full px-2 transition-all', selectedStatuses.includes(s) ? 'bg-navy text-card' : '')}>{s}</button>)}</div>
           <h3 className="text-[10px] font-bold uppercase tracking-wider text-grey mt-3 mb-1">Phase</h3>
-          <div className="flex flex-wrap gap-1">{phases.map(p => <button key={p} onClick={() => toggle(p, 'selectedPhases', selectedPhases)} className={clsx('text-xs border rounded-full px-2', selectedPhases.includes(p) ? 'bg-navy text-white' : '')}>{p}</button>)}</div>
+          <div className="flex flex-wrap gap-1">{phases.map(p => <button key={p} onClick={() => toggle(p, 'selectedPhases', selectedPhases)} className={clsx('text-xs border rounded-full px-2 transition-all', selectedPhases.includes(p) ? 'bg-navy text-card' : '')}>{p}</button>)}</div>
           <h3 className="text-[10px] font-bold uppercase tracking-wider text-grey mt-3 mb-1">Domain</h3>
-          <div className="flex flex-wrap gap-1">{domains.map(d => <button key={d.id} onClick={() => toggle(d.id, 'selectedDomains', selectedDomains)} className={clsx('text-xs border rounded-full px-2 truncate max-w-[200px]', selectedDomains.includes(d.id) ? 'bg-navy text-white' : '')}>{domainShortLabels[d.name] || d.name}</button>)}</div>
+          <div className="flex flex-wrap gap-1">{domains.map(d => <button key={d.id} onClick={() => toggle(d.id, 'selectedDomains', selectedDomains)} className={clsx('text-xs border rounded-full px-2 truncate max-w-[200px] transition-all', selectedDomains.includes(d.id) ? 'bg-navy text-card' : '')}>{domainShortLabels[d.name] || d.name}</button>)}</div>
           <h3 className="text-[10px] font-bold uppercase tracking-wider text-grey mt-3 mb-1">Legend</h3>
           <div className="text-xs">
             <div><span className="inline-block w-3 h-3 rounded-full bg-status-ready mr-1"></span> Ready</div>

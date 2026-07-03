@@ -2,11 +2,13 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { storage } from '@/lib/persistence';
 import { STORAGE_KEYS } from '@/lib/storage';
+import { useFilterStore } from './useFilterStore';
 
 export interface AuditLog {
   timestamp: string;
   message: string;
   category: 'Audit' | 'Architecture' | 'System' | 'Scenario';
+  hash?: string;
 }
 
 export interface ReadinessAssignment {
@@ -42,6 +44,21 @@ interface AuditStore {
   updateEvidenceNote: (rfId: string, note: string) => void;
 }
 
+export function computeLogHash(timestamp: string, category: string, message: string, prevHash: string): string {
+  const data = `${timestamp}|${category}|${message}|${prevHash}`;
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < data.length; i++) {
+    const char = data.charCodeAt(i);
+    h1 = Math.imul(h1 ^ char, 2654435761);
+    h2 = Math.imul(h2 ^ char, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
+}
+
 export const useAuditStore = create<AuditStore>()(
   persist(
     (set, get) => ({
@@ -56,7 +73,10 @@ export const useAuditStore = create<AuditStore>()(
           const timestamp = new Date().toLocaleTimeString();
           const action = isResolved ? 'unchecked' : 'resolved';
           const logMsg = `CCO ${action} remediation: [${id}]`;
-          const newLog: AuditLog = { timestamp, message: logMsg, category: 'Audit' };
+          const prevLog = state.auditLogs[0];
+          const prevHash = prevLog?.hash || '0000000000000000';
+          const hash = computeLogHash(timestamp, 'Audit', logMsg, prevHash);
+          const newLog: AuditLog = { timestamp, message: logMsg, category: 'Audit', hash };
 
           return {
             resolvedRemediations: next,
@@ -69,12 +89,16 @@ export const useAuditStore = create<AuditStore>()(
           timestamp: new Date().toLocaleTimeString(),
           message: 'System audit logs engine initialized successfully.',
           category: 'System',
+          hash: '0000000000000000',
         },
       ],
       addAuditLog: (message, category = 'System') =>
         set((state) => {
           const timestamp = new Date().toLocaleTimeString();
-          const newLog: AuditLog = { timestamp, message, category };
+          const prevLog = state.auditLogs[0];
+          const prevHash = prevLog?.hash || '0000000000000000';
+          const hash = computeLogHash(timestamp, category, message, prevHash);
+          const newLog: AuditLog = { timestamp, message, category, hash };
           return { auditLogs: [newLog, ...state.auditLogs].slice(0, 100) };
         }),
       clearAuditLogs: () => set({ auditLogs: [] }),
@@ -85,7 +109,10 @@ export const useAuditStore = create<AuditStore>()(
           const logMsg = arch
             ? `CCO committed U.S. launch architecture to: Option [${arch}]`
             : `CCO cleared committed U.S. launch architecture`;
-          const newLog: AuditLog = { timestamp, message: logMsg, category: 'Architecture' };
+          const prevLog = state.auditLogs[0];
+          const prevHash = prevLog?.hash || '0000000000000000';
+          const hash = computeLogHash(timestamp, 'Architecture', logMsg, prevHash);
+          const newLog: AuditLog = { timestamp, message: logMsg, category: 'Architecture', hash };
           return {
             committedArchitecture: arch,
             auditLogs: [newLog, ...state.auditLogs].slice(0, 100),
@@ -102,7 +129,10 @@ export const useAuditStore = create<AuditStore>()(
 
           const timestamp = new Date().toLocaleTimeString();
           const logMsg = `CCO updated task assignments for control: [${id}]`;
-          const newLog: AuditLog = { timestamp, message: logMsg, category: 'System' };
+          const prevLog = state.auditLogs[0];
+          const prevHash = prevLog?.hash || '0000000000000000';
+          const hash = computeLogHash(timestamp, 'System', logMsg, prevHash);
+          const newLog: AuditLog = { timestamp, message: logMsg, category: 'System', hash };
 
           return {
             readinessAssignments: nextAssignments,
@@ -119,7 +149,10 @@ export const useAuditStore = create<AuditStore>()(
 
           const timestamp = new Date().toLocaleTimeString();
           const logMsg = `CCO updated status for control [${id}] to: ${status}`;
-          const newLog: AuditLog = { timestamp, message: logMsg, category: 'Audit' };
+          const prevLog = state.auditLogs[0];
+          const prevHash = prevLog?.hash || '0000000000000000';
+          const hash = computeLogHash(timestamp, 'Audit', logMsg, prevHash);
+          const newLog: AuditLog = { timestamp, message: logMsg, category: 'Audit', hash };
 
           return {
             readinessStatusOverrides: nextOverrides,
@@ -140,7 +173,25 @@ export const useAuditStore = create<AuditStore>()(
           };
           const timestamp = new Date().toLocaleTimeString();
           const logMsg = `CCO toggled ${labels[key]} model to: ${next[key] ? 'ENABLED' : 'DISABLED'}`;
-          const newLog: AuditLog = { timestamp, message: logMsg, category: 'Scenario' };
+          const prevLog = state.auditLogs[0];
+          const prevHash = prevLog?.hash || '0000000000000000';
+          const hash = computeLogHash(timestamp, 'Scenario', logMsg, prevHash);
+          const newLog: AuditLog = { timestamp, message: logMsg, category: 'Scenario', hash };
+
+          // Sync with useFilterStore to keep sandbox in sync
+          try {
+            const filterStore = useFilterStore.getState();
+            if (key === 'micaExempt') {
+              if (filterStore.micaPassport !== next[key]) {
+                useFilterStore.setState({ micaPassport: next[key] });
+              }
+            } else if (key === 'commodityExempt') {
+              if (filterStore.clarityEnacted !== next[key]) {
+                useFilterStore.setState({ clarityEnacted: next[key] });
+              }
+            }
+          } catch {}
+
           return {
             safeHarborToggles: next,
             auditLogs: [newLog, ...state.auditLogs].slice(0, 100),
