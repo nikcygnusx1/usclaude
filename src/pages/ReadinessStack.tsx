@@ -33,6 +33,7 @@ export function ReadinessStack() {
     updateReadinessAssignment,
     updateReadinessStatus,
     addAuditLog,
+    safeHarborToggles,
   } = useAuditStore();
 
   const [selectedTask, setSelectedTask] = useState<ReadinessItem | null>(null);
@@ -42,13 +43,19 @@ export function ReadinessStack() {
   const [notes, setNotes] = useState<string>('');
   const [subtasks, setSubtasks] = useState<Record<string, boolean>>({});
 
-  // Merge base readiness items with status overrides
+  // Merge base readiness items with status overrides and safe harbor toggles
   const items = useMemo(() => {
-    return readinessItems.map(item => ({
-      ...item,
-      status: readinessStatusOverrides[item.id] || item.status,
-    }));
-  }, [readinessStatusOverrides]);
+    return readinessItems.map(item => {
+      let status = readinessStatusOverrides[item.id] || item.status;
+      if (safeHarborToggles?.defiExempt && item.id === 'SURV_TRUST') {
+        status = 'Complete';
+      }
+      if (safeHarborToggles?.micaExempt && (item.id === 'CORP_PARENT' || item.id === 'CORP_CFIUS')) {
+        status = 'Complete';
+      }
+      return { ...item, status };
+    });
+  }, [readinessStatusOverrides, safeHarborToggles]);
 
   const handleOpenTask = (task: ReadinessItem) => {
     setSelectedTask(task);

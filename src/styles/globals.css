@@ -80,3 +80,21 @@
   @apply text-xs font-semibold text-navy dark:text-ice mt-0.5 mb-2.5 last:mb-0;
 }
 
+/* USAMap SVG styling */
+path.state {
+  stroke: var(--line) !important;
+  stroke-width: 0.75px !important;
+  transition: fill 0.25s ease, fill-opacity 0.2s ease, stroke-width 0.2s ease !important;
+}
+path.state:hover {
+  fill-opacity: 0.8 !important;
+  stroke-width: 1.5px !important;
+  cursor: pointer;
+}
+.us-state-map svg {
+  width: 100%;
+  height: auto;
+  max-height: 480px;
+}
+
+

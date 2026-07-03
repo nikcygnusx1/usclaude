@@ -52,8 +52,10 @@ const PRONG_FACTORS: Record<string, { title: string; prongKey: keyof NonNullable
 };
 
 export function HoweyCalculator() {
-  const { addAuditLog } = useAuditStore();
+  const { addAuditLog, safeHarborToggles } = useAuditStore();
+  const commodityExempt = safeHarborToggles?.commodityExempt ?? false;
   const [tokenSymbol, setTokenSymbol] = useState<string>('LCX');
+
   const [checkedFactors, setCheckedFactors] = useState<Record<string, boolean>>({});
   const [selectedProductId, setSelectedProductId] = useState<string>('');
 
@@ -102,9 +104,14 @@ export function HoweyCalculator() {
       });
     });
 
+    if (commodityExempt) {
+      totalScore = Math.round(totalScore * 0.75); // reduce by 25%
+    }
+
     // clamp between 0 and 100
     return Math.max(0, Math.min(100, totalScore));
-  }, [checkedFactors, tokenSymbol]);
+  }, [checkedFactors, tokenSymbol, commodityExempt]);
+
 
   // SEC Enforcement Probability Mapping
   const secRisk = useMemo(() => {

@@ -84,7 +84,7 @@ export function Dashboard() {
   const phase1States = useMemo(() => filteredStates.filter(s => s.phase === 'Phase 1' && s.tier !== 'Unresearched'), [filteredStates]);
   const criticalStates = useMemo(() => filteredStates.filter(s => s.priority === 'Critical' || s.priority === 'High').slice(0, 5), [filteredStates]);
 
-  const { resolvedRemediations, readinessStatusOverrides, auditLogs } = useAuditStore();
+  const { resolvedRemediations, readinessStatusOverrides, auditLogs, safeHarborToggles } = useAuditStore();
   const [selectedState, setSelectedState] = useState<State | null>(null);
 
   // Live Terminal Logs State
@@ -140,7 +140,13 @@ export function Dashboard() {
   // Calculate readiness completion (merge store overrides)
   const totalReadiness = readinessItems.length;
   const completedReadiness = readinessItems.filter(r => {
-    const effectiveStatus = readinessStatusOverrides[r.id] || r.status;
+    let effectiveStatus = readinessStatusOverrides[r.id] || r.status;
+    if (safeHarborToggles?.defiExempt && r.id === 'SURV_TRUST') {
+      effectiveStatus = 'Complete';
+    }
+    if (safeHarborToggles?.micaExempt && (r.id === 'CORP_PARENT' || r.id === 'CORP_CFIUS')) {
+      effectiveStatus = 'Complete';
+    }
     return effectiveStatus === 'Complete';
   }).length;
   const readinessPercent = Math.round((completedReadiness / totalReadiness) * 100);

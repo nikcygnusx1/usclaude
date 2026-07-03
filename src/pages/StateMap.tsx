@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import USAMap from 'react-usa-map';
 import { Badge, InspectorDrawer } from '@/components/ui';
 import { states } from '@/data';
 import { useAuditStore } from '@/stores/useAuditStore';
@@ -6,35 +7,7 @@ import { useFilterStore } from '@/stores/useFilterStore';
 import { toBadgeStatus } from '@/lib/status';
 import { State } from '@/types/ontology';
 import { Map, SlidersHorizontal, Info, RefreshCw } from 'lucide-react';
-import { clsx } from 'clsx';
 
-
-// 50-State Geographic Grid Cartogram Mapping coordinates
-const gridPositions: Record<string, { r: number; c: number }> = {
-  AK: { r: 1, c: 1 }, ME: { r: 1, c: 12 },
-  WA: { r: 2, c: 2 }, ID: { r: 2, c: 3 }, MT: { r: 2, c: 4 }, ND: { r: 2, c: 5 }, MN: { r: 2, c: 6 }, WI: { r: 2, c: 7 }, MI: { r: 2, c: 8 }, NY: { r: 2, c: 9 }, VT: { r: 2, c: 10 }, NH: { r: 2, c: 11 },
-  OR: { r: 3, c: 2 }, NV: { r: 3, c: 3 }, WY: { r: 3, c: 4 }, SD: { r: 3, c: 5 }, IA: { r: 3, c: 6 }, IL: { r: 3, c: 7 }, IN: { r: 3, c: 8 }, OH: { r: 3, c: 9 }, PA: { r: 3, c: 10 }, NJ: { r: 3, c: 11 }, MA: { r: 3, c: 12 },
-  CA: { r: 4, c: 2 }, UT: { r: 4, c: 3 }, CO: { r: 4, c: 4 }, NE: { r: 4, c: 5 }, MO: { r: 4, c: 6 }, KY: { r: 4, c: 7 }, WV: { r: 4, c: 8 }, VA: { r: 4, c: 9 }, MD: { r: 4, c: 10 }, DE: { r: 4, c: 11 }, CT: { r: 4, c: 12 },
-  AZ: { r: 5, c: 3 }, NM: { r: 5, c: 4 }, KS: { r: 5, c: 5 }, AR: { r: 5, c: 6 }, TN: { r: 5, c: 7 }, NC: { r: 5, c: 8 }, SC: { r: 5, c: 9 }, RI: { r: 5, c: 12 },
-  OK: { r: 6, c: 5 }, LA: { r: 6, c: 6 }, MS: { r: 6, c: 7 }, AL: { r: 6, c: 8 }, GA: { r: 6, c: 9 },
-  HI: { r: 7, c: 2 }, TX: { r: 7, c: 5 }, FL: { r: 7, c: 10 }
-};
-
-const statusBorder: Record<string, string> = {
-  Ready: 'border-l-status-ready',
-  Conditional: 'border-l-status-conditional',
-  Blocked: 'border-l-status-blocked',
-  Deferred: 'border-l-status-deferred',
-  'Needs verification': 'border-l-status-unverified',
-};
-
-const statusGlow: Record<string, string> = {
-  Ready: 'bg-status-ready/10 hover:bg-status-ready/20 border-status-ready/30 text-status-ready',
-  Conditional: 'bg-status-conditional/10 hover:bg-status-conditional/20 border-status-conditional/30 text-status-conditional',
-  Blocked: 'bg-status-blocked/10 hover:bg-status-blocked/20 border-status-blocked/30 text-status-blocked',
-  Deferred: 'bg-status-deferred/10 hover:bg-status-deferred/20 border-status-deferred/30 text-status-deferred',
-  'Needs verification': 'bg-status-unverified/10 hover:bg-status-unverified/20 border-status-unverified/30 text-status-unverified',
-};
 
 export function StateMap() {
   const { addAuditLog } = useAuditStore();
@@ -80,6 +53,40 @@ export function StateMap() {
     setSelectedState(state);
     addAuditLog(`CCO inspected state card: [${state.abbreviation}]`, 'Audit');
   };
+
+  const mapConfig = useMemo(() => {
+    const config: Record<string, { fill?: string; clickHandler?: (e: any) => void }> = {};
+    states.forEach(s => {
+      const isUnresearched = s.tier === 'Unresearched';
+      const isActive = filteredStates.some(x => x.id === s.id);
+      const effectiveStatus = (clarityEnacted && s.nmlsRequired) ? 'Ready' : s.status;
+
+      let fill = '#64748b'; // default slate / unverified / deferred
+      if (isUnresearched) {
+        fill = 'rgba(148, 163, 184, 0.25)'; // faint slate for unresearched
+      } else if (!isActive) {
+        fill = 'rgba(148, 163, 184, 0.08)'; // transparent/hidden if filtered out
+      } else if (effectiveStatus === 'Ready') {
+        fill = '#0d9488'; // emerald-600/teal
+      } else if (effectiveStatus === 'Blocked') {
+        fill = '#e11d48'; // rose-600
+      } else if (effectiveStatus === 'Conditional') {
+        fill = '#d97706'; // amber-600
+      }
+
+      config[s.abbreviation] = {
+        fill,
+        clickHandler: (e: any) => {
+          const abbr = e.target.dataset.name;
+          const match = states.find(st => st.abbreviation === abbr);
+          if (match) {
+            handleStateClick(match);
+          }
+        }
+      };
+    });
+    return config;
+  }, [filteredStates, clarityEnacted]);
 
   return (
     <div className="flex h-[calc(100vh-6.5rem)] flex-col gap-4 text-navy dark:text-ice overflow-hidden">
@@ -191,69 +198,13 @@ export function StateMap() {
           </div>
         </div>
 
-        {/* Right Side: Geographic Grid Cartogram Map Viewport */}
-        <div className="flex-1 bg-card border border-line rounded-lg p-6 shadow-sm overflow-auto flex items-center justify-center">
-          <div className="grid grid-cols-12 gap-2 h-[450px] w-[850px] relative shrink-0">
-            {/* Generate all 50 states mapped to coordinates */}
-            {states.map(s => {
-              const pos = gridPositions[s.abbreviation];
-              if (!pos) return null; // Skip states without grid positions
-
-              const isUnresearched = s.tier === 'Unresearched';
-              const isActive = filteredStates.some(x => x.id === s.id);
-              const effectiveStatus = (clarityEnacted && s.nmlsRequired) ? 'Ready' : s.status;
-              const colorClass = statusGlow[effectiveStatus] || 'bg-status-deferred/10 border-status-deferred/30';
-              const borderClass = statusBorder[effectiveStatus] || 'border-l-status-deferred';
-
-              // Unresearched states: visible but faint, non-clickable
-              if (isUnresearched) {
-                return (
-                  <div
-                    key={s.id}
-                    title="Not yet researched"
-                    style={{
-                      gridRow: pos.r,
-                      gridColumn: pos.c,
-                    }}
-                    className="flex flex-col items-center justify-between rounded p-1.5 text-left w-full h-full border-l-4 select-none bg-slate-100 dark:bg-slate-800/30 border border-dashed border-slate-300 dark:border-slate-700 border-l-slate-300 dark:border-l-slate-700 text-slate-400"
-                  >
-                    <div className="flex justify-between items-center w-full">
-                      <span className="text-[11px] font-extrabold font-mono tracking-tight text-slate-400">{s.abbreviation}</span>
-                      <span className="h-1.5 w-1.5 rounded-full block bg-slate-300 dark:bg-slate-600" />
-                    </div>
-                    <div className="w-full text-right">
-                      <span className="text-[9px] text-slate-400 block font-sans truncate font-semibold uppercase">—</span>
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => handleStateClick(s)}
-                  style={{
-                    gridRow: pos.r,
-                    gridColumn: pos.c,
-                  }}
-                  className={clsx(
-                    'flex flex-col items-center justify-between border rounded p-1.5 text-left transition-all duration-300 w-full h-full transform active:scale-95 border-l-4 select-none',
-                    borderClass,
-                    isActive ? colorClass : 'bg-line/20 border-line/35 opacity-15 pointer-events-none'
-                  )}
-                >
-                  <div className="flex justify-between items-center w-full">
-                    <span className="text-[11px] font-extrabold font-mono tracking-tight">{s.abbreviation}</span>
-                    <span className="h-1.5 w-1.5 rounded-full block" style={{ backgroundColor: effectiveStatus === 'Ready' ? '#0d9488' : effectiveStatus === 'Blocked' ? '#e11d48' : effectiveStatus === 'Conditional' ? '#d97706' : '#64748b' }} />
-                  </div>
-                  <div className="w-full text-right">
-                    <span className="text-[9px] text-grey-dark block font-sans truncate font-semibold uppercase">{s.estTimeline || 'N/A'}</span>
-                  </div>
-                </button>
-              );
-            })}
+        {/* Right Side: Interactive SVG USA Map Viewport */}
+        <div className="flex-1 bg-card border border-line rounded-lg p-6 shadow-sm overflow-auto flex items-center justify-center us-state-map">
+          <div className="w-full max-w-2xl select-none">
+            <USAMap customize={mapConfig} />
           </div>
         </div>
+
 
       </div>
 
