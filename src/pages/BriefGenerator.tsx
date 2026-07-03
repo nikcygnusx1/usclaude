@@ -455,7 +455,7 @@ export function BriefGenerator() {
           
           {/* A4 Sheet layout container */}
           <div
-            className="w-[210mm] bg-white text-slate-900 px-[15mm] py-[20mm] shadow-lg rounded border border-slate-200 relative overflow-hidden font-sans print:shadow-none print:border-0 print:w-full print:p-0 print:m-0"
+            className="w-[210mm] bg-white text-slate-900 px-[15mm] py-[20mm] shadow-lg rounded border border-slate-200 relative overflow-hidden font-sans print:shadow-none print:border-0 print:w-full print:p-0 print:m-0 printable-brief-sheet"
             style={{ boxSizing: 'border-box' }}
           >
             {/* Rotating Confidential Watermark */}
@@ -869,33 +869,59 @@ export function BriefGenerator() {
       {/* Stylesheet injector for print margins overriding dashboard headers */}
       <style>{`
         @media print {
-          body * {
-            visibility: hidden;
+          /* Hide all non-printable wrappers */
+          header, aside, .print\\:hidden, button, input, select {
+            display: none !important;
           }
-          .print\\:p-0, .print\\:p-0 * {
-            visibility: visible;
+          
+          /* Override layout constraints to allow natural multi-page scrolling */
+          html, body, #root, #root > div, main, .flex-1, .flex-col, .overflow-hidden {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            display: block !important;
+            background: white !important;
           }
-          .print\\:p-0 {
+
+          /* Reset padding and margins */
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          /* Expand printable brief sheet to fill the canvas */
+          .printable-brief-sheet {
             position: absolute;
             left: 0;
             top: 0;
-            width: 100%;
-            height: auto;
-            background: white !important;
-            color: black !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-shadow: none !important;
+            border: 0 !important;
             padding: 0 !important;
             margin: 0 !important;
+            background: white !important;
+            color: black !important;
+            visibility: visible !important;
+            display: block !important;
           }
-          .print\\:hidden {
-            display: none !important;
+
+          /* Force text color and visibility */
+          .printable-brief-sheet * {
+            visibility: visible !important;
+            color: black !important;
+            text-shadow: none !important;
           }
-          tr {
-            page-break-inside: avoid;
-            break-inside: avoid;
+
+          /* Prevent table rows and blocks from splitting awkwardly */
+          tr, td, th, h3, .border {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
+
           .page-break-before-always {
-            page-break-before: always;
-            break-before: page;
+            page-break-before: always !important;
+            break-before: page !important;
           }
         }
       `}</style>
