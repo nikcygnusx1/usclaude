@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useAuditStore } from '@/stores/useAuditStore';
+import { useFilterStore } from '@/stores/useFilterStore';
 import { Sliders, Terminal } from 'lucide-react';
 import { clsx } from 'clsx';
 import { states } from '@/data';
+
 
 interface PolicyScenario {
   id: string;
@@ -58,20 +60,29 @@ interface RuleEntry {
 
 export function ScenarioPlanner() {
   const { addAuditLog } = useAuditStore();
-  const [activeScenarios, setActiveScenarios] = useState<Record<string, boolean>>({
-    'clarity-act': false,
-    'mica-passport': false,
-    'wyoming-SPDI-equivalence': false,
-  });
+  const { clarityEnacted, spdiEquivalence, micaPassport, toggleFilterStoreField } = useFilterStore();
+
+  const activeScenarios = useMemo<Record<string, boolean>>(() => ({
+    'clarity-act': clarityEnacted,
+    'mica-passport': micaPassport,
+    'wyoming-SPDI-equivalence': spdiEquivalence,
+  }), [clarityEnacted, micaPassport, spdiEquivalence]);
 
   const handleToggleScenario = (id: string) => {
-    setActiveScenarios(prev => {
-      const next = { ...prev, [id]: !prev[id] };
-      const action = next[id] ? 'activated' : 'deactivated';
+    const keyMap: Record<string, 'clarityEnacted' | 'spdiEquivalence' | 'micaPassport'> = {
+      'clarity-act': 'clarityEnacted',
+      'mica-passport': 'micaPassport',
+      'wyoming-SPDI-equivalence': 'spdiEquivalence',
+    };
+    const key = keyMap[id];
+    if (key) {
+      toggleFilterStoreField(key);
+      const nextVal = !activeScenarios[id];
+      const action = nextVal ? 'activated' : 'deactivated';
       addAuditLog(`CCO simulated regulatory policy scenario: [${id}] ${action}`, 'Scenario');
-      return next;
-    });
+    }
   };
+
 
   const beforeRules = [
     `State Money Transmitter License (MTL) required across ${nmlsDisplay} states.`,
@@ -118,7 +129,7 @@ export function ScenarioPlanner() {
     }
 
     return rules;
-  }, [activeScenarios]);
+  }, [clarityEnacted, spdiEquivalence, micaPassport]);
 
   return (
     <div className="space-y-4 text-navy dark:text-ice h-[calc(100vh-6.5rem)] flex flex-col overflow-hidden min-h-0">

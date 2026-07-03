@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui';
 import { products } from '@/data';
 import { useAuditStore } from '@/stores/useAuditStore';
 import { toBadgeStatus } from '@/lib/status';
-import { Coins, ChevronDown, ChevronUp, Copy, Check, ExternalLink } from 'lucide-react';
+import { Coins, ChevronDown, ChevronUp, Copy, Check, ExternalLink, Scale } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export function ProductMatrix() {
@@ -206,7 +206,7 @@ export function ProductMatrix() {
                               )}
                             </div>
 
-                            <div className="pt-4 border-t border-line/60 mt-auto flex items-center gap-3">
+                            <div className="pt-4 border-t border-line/60 mt-auto flex flex-col sm:flex-row sm:items-center gap-4">
                               <button
                                 onClick={() => handleLinkToOntology(p.id)}
                                 className="flex items-center gap-1.5 text-xs font-bold text-navy hover:text-grey dark:text-ice dark:hover:text-grey underline transition-colors"
@@ -214,7 +214,15 @@ export function ProductMatrix() {
                                 <ExternalLink size={13} />
                                 <span>Inspect Registry connections on Ontology Graph</span>
                               </button>
+                              <button
+                                onClick={() => navigate('/howey?asset=' + p.id)}
+                                className="flex items-center gap-1.5 text-xs font-bold text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 underline transition-colors"
+                              >
+                                <Scale size={13} />
+                                <span>Simulate in Howey Calculator</span>
+                              </button>
                             </div>
+
                           </div>
                         </div>
                       </td>

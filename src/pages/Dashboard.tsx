@@ -1,11 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, MapPin, ShieldCheck, Coins, Terminal, ShieldAlert } from 'lucide-react';
 import { Card, CardHeader, CardBody, Badge, ReadinessMeter, InspectorDrawer } from '@/components/ui';
 import { states, products, requirements, readinessItems, redFlags } from '@/data';
 import { useAuditStore } from '@/stores/useAuditStore';
+import { useFilterStore } from '@/stores/useFilterStore';
 import { toBadgeStatus } from '@/lib/status';
 import { State } from '@/types/ontology';
+import { clsx } from 'clsx';
+
+
 
 const statusDot: Record<string, string> = {
   Ready: 'bg-status-ready',
@@ -56,17 +60,58 @@ function StatCard({ icon: Icon, label, value, hint }: { icon: any; label: string
 }
 
 export function Dashboard() {
-  const researched = states.filter(s => s.tier !== 'Unresearched');
-  const readyOrConditional = states.filter(s => s.status === 'Ready' || s.status === 'Conditional');
-  const blockers = requirements.filter(r => r.status === 'Blocked');
-  const phase1States = states.filter(s => s.phase === 'Phase 1' && s.tier !== 'Unresearched');
-  const criticalStates = states.filter(s => s.priority === 'Critical' || s.priority === 'High').slice(0, 5);
+  const { selectedStatuses, selectedPhases, clarityEnacted } = useFilterStore();
 
-  const { resolvedRemediations, readinessStatusOverrides } = useAuditStore();
+  const getEffectiveStatus = (s: State) => (clarityEnacted && s.nmlsRequired) ? 'Ready' : s.status;
+
+  const filteredStates = useMemo(() => {
+    return states.filter(s => {
+      const effectiveStatus = getEffectiveStatus(s);
+      const matchStatus = selectedStatuses.length === 0 || selectedStatuses.includes(effectiveStatus);
+      const matchPhase = selectedPhases.length === 0 || selectedPhases.includes(s.phase);
+      return matchStatus && matchPhase;
+    });
+  }, [selectedStatuses, selectedPhases, clarityEnacted]);
+
+  const researched = useMemo(() => filteredStates.filter(s => s.tier !== 'Unresearched'), [filteredStates]);
+  const readyOrConditional = useMemo(() => {
+    return filteredStates.filter(s => {
+      const effectiveStatus = getEffectiveStatus(s);
+      return effectiveStatus === 'Ready' || effectiveStatus === 'Conditional';
+    });
+  }, [filteredStates, clarityEnacted]);
+  const blockers = useMemo(() => requirements.filter(r => r.status === 'Blocked'), []);
+  const phase1States = useMemo(() => filteredStates.filter(s => s.phase === 'Phase 1' && s.tier !== 'Unresearched'), [filteredStates]);
+  const criticalStates = useMemo(() => filteredStates.filter(s => s.priority === 'Critical' || s.priority === 'High').slice(0, 5), [filteredStates]);
+
+  const { resolvedRemediations, readinessStatusOverrides, auditLogs } = useAuditStore();
   const [selectedState, setSelectedState] = useState<State | null>(null);
 
   // Live Terminal Logs State
   const [logs, setLogs] = useState<string[]>([]);
+
+  const allLogs = useMemo(() => {
+    const storeLogs = auditLogs.map(al => ({
+      timestamp: al.timestamp,
+      message: al.message,
+      category: al.category,
+      isReal: true,
+    }));
+
+    const simLogs = logs.map(l => {
+      const match = l.match(/^\[(.*?)\] (.*)$/);
+      return {
+        timestamp: match ? match[1] : new Date().toLocaleTimeString(),
+        message: match ? match[2] : l,
+        category: 'System' as const,
+        isReal: false,
+      };
+    });
+
+    // Merge and show up to 25 items
+    return [...storeLogs, ...simLogs].slice(0, 25);
+  }, [auditLogs, logs]);
+
 
   useEffect(() => {
     // Populate with 5 random initial logs
@@ -150,14 +195,15 @@ export function Dashboard() {
             <CardBody>
               <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
                 {states.map(s => {
-                  const tileClass = statusTileBg[s.status] || 'bg-slate-400/10 border-slate-400/25 text-slate-500 dark:text-slate-400';
-                  const dotClass = statusDot[s.status] || 'bg-status-unverified';
+                  const effectiveStatus = getEffectiveStatus(s);
+                  const tileClass = statusTileBg[effectiveStatus] || 'bg-slate-400/10 border-slate-400/25 text-slate-500 dark:text-slate-400';
+                  const dotClass = statusDot[effectiveStatus] || 'bg-status-unverified';
                   return (
                     <button
                       key={s.id}
                       onClick={() => setSelectedState(s)}
                       className={`relative flex flex-col items-center justify-center p-1 h-10 border rounded text-[10px] font-bold transition-all transform active:scale-95 ${tileClass} hover:opacity-80`}
-                      title={`${s.name} — ${s.status}`}
+                      title={`${s.name} — ${effectiveStatus}`}
                     >
                       <span className={`absolute top-0.5 right-0.5 h-[5px] w-[5px] rounded-full ${dotClass}`} />
                       <span>{s.abbreviation}</span>
@@ -177,12 +223,15 @@ export function Dashboard() {
               </CardHeader>
               <CardBody className="overflow-y-auto flex-1 p-3">
                 <ul className="space-y-2">
-                  {phase1States.map(s => (
-                    <li key={s.id} className="flex items-center justify-between text-xs">
-                      <button onClick={() => setSelectedState(s)} className="hover:underline font-bold text-left">{s.name}</button>
-                      <Badge status={toBadgeStatus(s.status)}>{s.status}</Badge>
-                    </li>
-                  ))}
+                  {phase1States.map(s => {
+                    const effectiveStatus = getEffectiveStatus(s);
+                    return (
+                      <li key={s.id} className="flex items-center justify-between text-xs">
+                        <button onClick={() => setSelectedState(s)} className="hover:underline font-bold text-left">{s.name}</button>
+                        <Badge status={toBadgeStatus(effectiveStatus)}>{effectiveStatus}</Badge>
+                      </li>
+                    );
+                  })}
                 </ul>
               </CardBody>
             </Card>
@@ -193,14 +242,17 @@ export function Dashboard() {
               </CardHeader>
               <CardBody className="overflow-y-auto flex-1 p-3">
                 <ul className="space-y-2">
-                  {criticalStates.map(s => (
-                    <li key={s.id} className="flex items-center justify-between text-xs">
-                      <button onClick={() => setSelectedState(s)} className="hover:underline font-bold text-left">
-                        {s.name} <span className="text-grey font-mono text-[9px]">({s.tier.replace(/^Tier \d - /, '')})</span>
-                      </button>
-                      <Badge status={toBadgeStatus(s.status)}>{s.status}</Badge>
-                    </li>
-                  ))}
+                  {criticalStates.map(s => {
+                    const effectiveStatus = getEffectiveStatus(s);
+                    return (
+                      <li key={s.id} className="flex items-center justify-between text-xs">
+                        <button onClick={() => setSelectedState(s)} className="hover:underline font-bold text-left">
+                          {s.name} <span className="text-grey font-mono text-[9px]">({s.tier.replace(/^Tier \d - /, '')})</span>
+                        </button>
+                        <Badge status={toBadgeStatus(effectiveStatus)}>{effectiveStatus}</Badge>
+                      </li>
+                    );
+                  })}
                 </ul>
               </CardBody>
             </Card>
@@ -276,15 +328,30 @@ export function Dashboard() {
 
             {/* Console Log Lines */}
             <div className="flex-1 p-3 overflow-y-auto space-y-2 leading-relaxed flex flex-col-reverse justify-end select-text">
-              <div className="flex items-center gap-1.5 text-cyan-400 font-bold shrink-0">
+              <div className="flex items-center gap-1.5 text-cyan-400 font-bold shrink-0 mb-1">
                 <span>&gt; SYSTEM ACTIVE</span>
                 <span className="h-3 w-1.5 bg-cyan-400 animate-pulse block shrink-0" />
               </div>
-              {logs.map((log, index) => (
-                <div key={index} className="text-slate-300 break-words font-mono text-[9px]">
-                  {log}
-                </div>
-              ))}
+              {allLogs.map((log, index) => {
+                const catColor = 
+                  log.category === 'Audit' ? 'text-teal-400 border-teal-500/30' :
+                  log.category === 'Architecture' ? 'text-cyan-400 border-cyan-500/30' :
+                  log.category === 'Scenario' ? 'text-amber-400 border-amber-500/30' : 
+                  log.category === 'System' ? 'text-purple-400 border-purple-500/30' : 'text-slate-400';
+                return (
+                  <div key={index} className="text-slate-300 break-words font-mono text-[9px] flex gap-1.5 items-start">
+                    <span className="text-slate-600 shrink-0 select-none">[{log.timestamp}]</span>
+                    {log.isReal && (
+                      <span className={clsx('px-1 py-0.5 rounded text-[7px] uppercase font-bold shrink-0 leading-none bg-slate-900 border', catColor)}>
+                        {log.category}
+                      </span>
+                    )}
+                    <span className={log.isReal ? 'text-slate-100 font-bold' : 'text-slate-400'}>
+                      {log.message}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

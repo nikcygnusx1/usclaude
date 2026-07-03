@@ -29,7 +29,7 @@ function CardProperties({ node }: { node: RegulatoryNode }) {
   if (isState) {
     const s = node.data as State;
     return (
-      <div className="mt-1.5 pt-1.5 border-t border-line/50 space-y-0.5 text-[8px] font-mono leading-tight">
+      <div className="mt-1.5 pt-1.5 border-t border-line/50 space-y-0.5 text-[9px] font-mono leading-tight">
         <div className="flex justify-between">
           <span className="text-grey uppercase">Net Worth:</span>
           <span className="font-bold text-navy-deep dark:text-ice-soft">{s.minNetWorth || 'None'}</span>
@@ -51,7 +51,7 @@ function CardProperties({ node }: { node: RegulatoryNode }) {
   if (isProduct) {
     const p = node.data as Product;
     return (
-      <div className="mt-1.5 pt-1.5 border-t border-line/50 space-y-0.5 text-[8px] font-mono leading-tight">
+      <div className="mt-1.5 pt-1.5 border-t border-line/50 space-y-0.5 text-[9px] font-mono leading-tight">
         <div className="flex justify-between">
           <span className="text-grey uppercase">Category:</span>
           <span className="font-bold text-navy-deep dark:text-ice-soft">{p.category}</span>
@@ -74,7 +74,7 @@ function CardProperties({ node }: { node: RegulatoryNode }) {
     const r = node.data as Requirement;
     const shortDomain = r.domain.length > 20 ? r.domain.slice(0, 18) + '...' : r.domain;
     return (
-      <div className="mt-1.5 pt-1.5 border-t border-line/50 space-y-0.5 text-[8px] font-mono leading-tight">
+      <div className="mt-1.5 pt-1.5 border-t border-line/50 space-y-0.5 text-[9px] font-mono leading-tight">
         <div className="flex justify-between">
           <span className="text-grey uppercase">Domain:</span>
           <span className="font-bold text-navy-deep dark:text-ice-soft truncate max-w-[120px]" title={r.domain}>{shortDomain}</span>
@@ -90,7 +90,7 @@ function CardProperties({ node }: { node: RegulatoryNode }) {
   if (isLicense) {
     const l = node.data as License;
     return (
-      <div className="mt-1.5 pt-1.5 border-t border-line/50 space-y-0.5 text-[8px] font-mono leading-tight">
+      <div className="mt-1.5 pt-1.5 border-t border-line/50 space-y-0.5 text-[9px] font-mono leading-tight">
         <div className="flex justify-between">
           <span className="text-grey uppercase">Authority:</span>
           <span className="font-bold text-navy-deep dark:text-ice-soft truncate max-w-[120px]">{l.issuingAuthority}</span>
@@ -152,7 +152,7 @@ export function CustomOntologyNode({ data }: { data: CustomNodeData }) {
           <div className="text-[10px] font-bold text-navy dark:text-ice truncate leading-tight font-mono">
             {isPreempted ? `[Preemption] ${node.label}` : node.label}
           </div>
-          <div className="text-[8px] font-semibold text-grey uppercase tracking-wider mt-0.5 font-sans flex items-center gap-1">
+          <div className="text-[9px] font-semibold text-grey uppercase tracking-wider mt-0.5 font-sans flex items-center gap-1">
             <span>{node.type}</span>
             <span>·</span>
             <span>{node.phase}</span>

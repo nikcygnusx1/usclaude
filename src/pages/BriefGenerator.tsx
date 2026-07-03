@@ -1,11 +1,15 @@
 import { useState, useMemo } from 'react';
 import { states, products } from '@/data';
 import { useAuditStore } from '@/stores/useAuditStore';
+import { useFilterStore } from '@/stores/useFilterStore';
 import { FileText, Printer } from 'lucide-react';
 import { clsx } from 'clsx';
 
+
 export function BriefGenerator() {
   const { committedArchitecture, addAuditLog } = useAuditStore();
+  const { clarityEnacted } = useFilterStore();
+
 
   const [selectedTemplate, setSelectedTemplate] = useState<'exec' | 'state' | 'sec'>('exec');
   const [selectedStates, setSelectedStates] = useState<string[]>(['MT', 'WY']);
@@ -212,7 +216,7 @@ export function BriefGenerator() {
 
                   <h3 className="text-sm font-bold text-slate-950 border-b border-slate-300 pb-1">3. Capital Requirement Projections</h3>
                   <p>
-                    Based on the active state cohort selection, the aggregate estimated licensing fees sum to <strong>${activeStates.reduce((acc, s) => { if (s.estCost) { const parsed = parseInt(s.estCost.replace(/[^0-9]/g, '')); return acc + (isNaN(parsed) ? 15000 : parsed * (s.estCost.includes('K') ? 1000 : 1)); } return acc + 15000; }, 0).toLocaleString()}</strong>. Combined surety bond collateral requirements require a minimum escrow allocation of <strong>${activeStates.reduce((acc, s) => { if (s.suretyBond) { const val = parseInt(s.suretyBond.replace(/[^0-9]/g, '')) || 0; return acc + val; } return acc; }, 0).toLocaleString()}</strong>.
+                    Based on the active state cohort selection, the aggregate estimated licensing fees sum to <strong>${activeStates.reduce((acc, s) => { if (clarityEnacted && s.nmlsRequired) return acc; if (s.estCost) { const parsed = parseInt(s.estCost.replace(/[^0-9]/g, '')); return acc + (isNaN(parsed) ? 15000 : parsed * (s.estCost.includes('K') ? 1000 : 1)); } return acc + 15000; }, 0).toLocaleString()}</strong>. Combined surety bond collateral requirements require a minimum escrow allocation of <strong>${activeStates.reduce((acc, s) => { if (clarityEnacted && s.nmlsRequired) return acc; if (s.suretyBond) { const val = parseInt(s.suretyBond.replace(/[^0-9]/g, '')) || 0; return acc + val; } return acc; }, 0).toLocaleString()}</strong>.
                   </p>
                 </div>
               )}

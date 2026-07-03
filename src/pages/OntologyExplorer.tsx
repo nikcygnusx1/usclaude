@@ -1,13 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import ReactFlow, { Background, Controls, MiniMap, Node, ReactFlowProvider } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useGraph } from '@/hooks/useGraph';
 import { Badge, InspectorDrawer, CustomOntologyNode } from '@/components/ui';
 import { toBadgeStatus } from '@/lib/status';
 import { RegulatoryNode } from '@/types/ontology';
-import { states, products, requirements, licenses } from '@/data';
+import { states, products, requirements, licenses, ontologyGraph } from '@/data';
 import { clsx } from 'clsx';
 import { Search, Info, Sliders, Calendar, Layers, Eye } from 'lucide-react';
+
 
 const nodeTypes = {
   custom: CustomOntologyNode,
@@ -22,6 +24,7 @@ const timelineStepLabels: Record<number, { title: string; desc: string }> = {
 };
 
 export function OntologyExplorer() {
+  const location = useLocation();
   const [layoutDirection, setLayoutDirection] = useState<'LR' | 'TB'>('LR');
   const [colorBy, setColorBy] = useState<'status' | 'phase' | 'domain'>('status');
   const [activeLayers, setActiveLayers] = useState<Set<string>>(new Set(['state', 'license', 'requirement', 'product']));
@@ -33,6 +36,37 @@ export function OntologyExplorer() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [rfInstance, setRfInstance] = useState<any>(null);
 
+  // Auto-activate layers and timeline matching focus param
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const focusId = params.get('focus');
+    if (focusId) {
+      const rawNode = ontologyGraph.nodes.find(n => n.id === focusId);
+      if (rawNode) {
+        if (!activeLayers.has(rawNode.type)) {
+          setActiveLayers(prev => {
+            const next = new Set(prev);
+            next.add(rawNode.type);
+            return next;
+          });
+        }
+        const phaseSteps: Record<string, number> = {
+          'Pre-launch': 0,
+          'Phase 1': 1,
+          'Phase 2': 2,
+          'Phase 3': 3,
+          'Post-CLARITY': 4,
+        };
+        const neededStep = phaseSteps[rawNode.phase];
+        if (neededStep !== undefined && timelineStep < neededStep) {
+          setTimelineStep(neededStep);
+        }
+        setSelectedNodeId(focusId);
+        setSelectedNode(rawNode);
+      }
+    }
+  }, [location.search]);
+
   // Load graph nodes and edges dynamically based on layers, timeline step, and direction
   const { nodes, edges, nodeCount, edgeCount } = useGraph({
     layoutDirection,
@@ -40,6 +74,17 @@ export function OntologyExplorer() {
     activeLayers,
     timelineStep,
   });
+
+  // Center node once loaded in ReactFlow
+  useEffect(() => {
+    if (rfInstance && selectedNodeId) {
+      const matchNode = nodes.find(n => n.id === selectedNodeId);
+      if (matchNode) {
+        rfInstance.setCenter(matchNode.position.x + 120, matchNode.position.y + 45, { zoom: 1.1, duration: 800 });
+      }
+    }
+  }, [rfInstance, selectedNodeId, nodes]);
+
 
   const toggleLayer = (layer: string) => {
     const next = new Set(activeLayers);

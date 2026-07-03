@@ -13,11 +13,14 @@ interface FilterState {
   selectedSourceAuthorities: SourceAuthority[];
   searchQuery: string;
   clarityEnacted: boolean;
+  spdiEquivalence: boolean;
+  micaPassport: boolean;
 }
 
 interface FilterStore extends FilterState {
   setFilter: <K extends keyof FilterState>(key: K, value: FilterState[K]) => void;
   toggleClarityEnacted: () => void;
+  toggleFilterStoreField: (key: 'clarityEnacted' | 'spdiEquivalence' | 'micaPassport') => void;
   resetFilters: () => void;
 }
 
@@ -29,13 +32,16 @@ const init: FilterState = {
   selectedVerificationStatuses: [],
   selectedSourceAuthorities: [],
   searchQuery: '',
-  clarityEnacted: false
+  clarityEnacted: false,
+  spdiEquivalence: false,
+  micaPassport: false
 };
 
 export const useFilterStore = create<FilterStore>()(persist(set => ({
   ...init,
   setFilter: (key, value) => set({ [key]: value } as any),
   toggleClarityEnacted: () => set(s => ({ clarityEnacted: !s.clarityEnacted })),
+  toggleFilterStoreField: (key) => set(s => ({ [key]: !s[key] } as any)),
   resetFilters: () => set({ ...init }),
 }), {
   name: STORAGE_KEYS.FILTERS,
@@ -45,3 +51,4 @@ export const useFilterStore = create<FilterStore>()(persist(set => ({
     removeItem: (n) => storage.remove(n),
   })),
 }));
+

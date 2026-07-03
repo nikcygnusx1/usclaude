@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuditStore } from '@/stores/useAuditStore';
 import { Scale, RotateCcw } from 'lucide-react';
 import { clsx } from 'clsx';
 import { products } from '@/data';
+
 
 interface HoweyFactor {
   id: string;
@@ -58,6 +60,21 @@ export function HoweyCalculator() {
   const selectedProduct = useMemo(() => {
     return products.find(p => p.id === selectedProductId) ?? null;
   }, [selectedProductId]);
+
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const assetId = params.get('asset');
+    if (assetId) {
+      const match = products.find(p => p.id === assetId);
+      if (match) {
+        setSelectedProductId(assetId);
+        setTokenSymbol(match.id);
+      }
+    }
+  }, [location.search]);
+
 
   const handleCheckboxChange = (factorId: string) => {
     setCheckedFactors(prev => {
@@ -220,31 +237,43 @@ export function HoweyCalculator() {
             SEC Enforcement Probability Dial
           </span>
 
-          {/* Radial SVG Gauge */}
-          <div className="relative flex items-center justify-center h-36 w-36">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--line)" strokeWidth="8" />
-              <circle
-                cx="50"
-                cy="50"
-                r="40"
-                fill="transparent"
-                stroke={scoreResult >= 75 ? '#ef4444' : scoreResult >= 45 ? '#f59e0b' : '#10b981'}
-                strokeWidth="8"
-                strokeDasharray={`${2 * Math.PI * 40}`}
-                strokeDashoffset={`${2 * Math.PI * 40 * (1 - scoreResult / 100)}`}
-                strokeLinecap="round"
-                className="transition-all duration-500 ease-out"
-                style={{
-                  filter: `drop-shadow(0 0 4px ${scoreResult >= 75 ? 'rgba(239, 68, 68, 0.4)' : scoreResult >= 45 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)'})`
-                }}
-              />
-            </svg>
-            <div className="absolute flex flex-col items-center justify-center font-mono">
-              <span className="text-3xl font-extrabold text-navy dark:text-ice">{scoreResult}%</span>
-              <span className="text-[9px] text-grey uppercase tracking-wider font-bold">Howey Index</span>
+          {/* Radial SVG Needle Gauge */}
+          <div className="relative flex flex-col items-center justify-center w-full mt-2 select-none">
+            <div className="h-32 w-52 relative">
+              <svg className="w-full h-full" viewBox="0 0 100 60">
+                <defs>
+                  <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#0d9488" />
+                    <stop offset="50%" stopColor="#d97706" />
+                    <stop offset="100%" stopColor="#e11d48" />
+                  </linearGradient>
+                </defs>
+                {/* Track */}
+                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--line)" strokeWidth="6" strokeLinecap="round" />
+                {/* Fills dynamically */}
+                <path
+                  d="M 10 50 A 40 40 0 0 1 90 50"
+                  fill="none"
+                  stroke="url(#gauge-gradient)"
+                  strokeWidth="7"
+                  strokeLinecap="round"
+                  strokeDasharray="125.6"
+                  strokeDashoffset={125.6 * (1 - scoreResult / 100)}
+                  className="transition-all duration-700 ease-out"
+                />
+                {/* Needle */}
+                <g transform={`rotate(${(scoreResult / 100) * 180 - 180}, 50, 50)`} className="transition-transform duration-700 ease-out origin-[50px_50px]">
+                  <line x1="50" y1="50" x2="15" y2="50" stroke="var(--navy)" strokeWidth="2" strokeLinecap="round" className="dark:stroke-ice" />
+                  <circle cx="50" cy="50" r="3" fill="var(--navy)" className="dark:fill-ice" />
+                </g>
+              </svg>
+              <div className="absolute bottom-2 left-0 right-0 flex flex-col items-center justify-center font-mono">
+                <span className="text-3xl font-extrabold text-navy dark:text-ice leading-none">{scoreResult}%</span>
+                <span className="text-[10px] text-grey uppercase tracking-wider font-bold mt-1">Howey Index</span>
+              </div>
             </div>
           </div>
+
 
           {/* Enforcement risk statement */}
           <div className={clsx('rounded p-4 border text-center text-xs space-y-2 w-full', secRisk.color)}>

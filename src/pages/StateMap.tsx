@@ -2,10 +2,12 @@ import { useState, useMemo } from 'react';
 import { Badge, InspectorDrawer } from '@/components/ui';
 import { states } from '@/data';
 import { useAuditStore } from '@/stores/useAuditStore';
+import { useFilterStore } from '@/stores/useFilterStore';
 import { toBadgeStatus } from '@/lib/status';
 import { State } from '@/types/ontology';
 import { Map, SlidersHorizontal, Info, RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
+
 
 // 50-State Geographic Grid Cartogram Mapping coordinates
 const gridPositions: Record<string, { r: number; c: number }> = {
@@ -36,6 +38,7 @@ const statusGlow: Record<string, string> = {
 
 export function StateMap() {
   const { addAuditLog } = useAuditStore();
+  const { selectedStatuses, selectedPhases, clarityEnacted } = useFilterStore();
   const [selectedState, setSelectedState] = useState<State | null>(null);
 
   // Filters State
@@ -56,9 +59,13 @@ export function StateMap() {
       const matchPriority = priorityFilter === 'all' || s.priority === priorityFilter;
       const matchPhase = phaseFilter === 'all' || s.phase === phaseFilter;
 
-      return matchNmls && matchSandbox && matchRegime && matchPriority && matchPhase;
+      // Apply global filters
+      const matchGlobalStatus = selectedStatuses.length === 0 || selectedStatuses.includes(s.status);
+      const matchGlobalPhase = selectedPhases.length === 0 || selectedPhases.includes(s.phase);
+
+      return matchNmls && matchSandbox && matchRegime && matchPriority && matchPhase && matchGlobalStatus && matchGlobalPhase;
     });
-  }, [nmlsFilter, sandboxFilter, regimeFilter, priorityFilter, phaseFilter]);
+  }, [nmlsFilter, sandboxFilter, regimeFilter, priorityFilter, phaseFilter, selectedStatuses, selectedPhases]);
 
   const handleResetFilters = () => {
     setNmlsFilter('all');
@@ -194,8 +201,9 @@ export function StateMap() {
 
               const isUnresearched = s.tier === 'Unresearched';
               const isActive = filteredStates.some(x => x.id === s.id);
-              const colorClass = statusGlow[s.status] || 'bg-status-deferred/10 border-status-deferred/30';
-              const borderClass = statusBorder[s.status] || 'border-l-status-deferred';
+              const effectiveStatus = (clarityEnacted && s.nmlsRequired) ? 'Ready' : s.status;
+              const colorClass = statusGlow[effectiveStatus] || 'bg-status-deferred/10 border-status-deferred/30';
+              const borderClass = statusBorder[effectiveStatus] || 'border-l-status-deferred';
 
               // Unresearched states: visible but faint, non-clickable
               if (isUnresearched) {
@@ -236,7 +244,7 @@ export function StateMap() {
                 >
                   <div className="flex justify-between items-center w-full">
                     <span className="text-[11px] font-extrabold font-mono tracking-tight">{s.abbreviation}</span>
-                    <span className="h-1.5 w-1.5 rounded-full block" style={{ backgroundColor: s.status === 'Ready' ? '#10b981' : s.status === 'Blocked' ? '#ef4444' : s.status === 'Conditional' ? '#f59e0b' : '#64748b' }} />
+                    <span className="h-1.5 w-1.5 rounded-full block" style={{ backgroundColor: effectiveStatus === 'Ready' ? '#0d9488' : effectiveStatus === 'Blocked' ? '#e11d48' : effectiveStatus === 'Conditional' ? '#d97706' : '#64748b' }} />
                   </div>
                   <div className="w-full text-right">
                     <span className="text-[9px] text-grey-dark block font-sans truncate font-semibold uppercase">{s.estTimeline || 'N/A'}</span>
@@ -251,10 +259,13 @@ export function StateMap() {
 
       {/* Slide-out State Inspector Drawer */}
       <InspectorDrawer isOpen={!!selectedState} onClose={() => setSelectedState(null)} title={selectedState?.name ?? ''}>
-        {selectedState && (
-          <div className="space-y-4 text-xs leading-relaxed text-navy dark:text-ice">
-            <div className="flex flex-wrap gap-2">
-              <Badge status={toBadgeStatus(selectedState.status)}>{selectedState.status}</Badge>
+        {selectedState && (() => {
+          const effectiveStatus = (clarityEnacted && selectedState.nmlsRequired) ? 'Ready' : selectedState.status;
+          return (
+            <div className="space-y-4 text-xs leading-relaxed text-navy dark:text-ice">
+              <div className="flex flex-wrap gap-2">
+                <Badge status={toBadgeStatus(effectiveStatus)}>{effectiveStatus}</Badge>
+
               <span className="rounded-full border border-line px-2.5 py-0.5 uppercase tracking-wider text-[10px] font-mono">{selectedState.phase}</span>
               <span className="rounded-full border border-line px-2.5 py-0.5 uppercase tracking-wider text-[10px] font-mono">{selectedState.tier}</span>
             </div>
@@ -275,14 +286,17 @@ export function StateMap() {
               <p><span className="font-semibold text-grey block uppercase text-[9px] tracking-wider">NMLS Registration</span> {selectedState.nmlsRequired ? 'Required (Apply via NMLS)' : 'Not Used / Exempt'}</p>
             </div>
 
-            <div className="space-y-2">
+             <div className="space-y-2">
               {selectedState.estCost && <p><span className="font-semibold text-grey block uppercase text-[9px] tracking-wider">Estimated Cost</span> <span className="font-mono">{selectedState.estCost}</span></p>}
               {selectedState.estTimeline && <p><span className="font-semibold text-grey block uppercase text-[9px] tracking-wider">Estimated Timeline</span> <span className="font-mono">{selectedState.estTimeline}</span></p>}
               <p><span className="font-semibold text-grey block uppercase text-[9px] tracking-wider">Operational Notes</span> {selectedState.notes}</p>
             </div>
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </InspectorDrawer>
+
+
     </div>
   );
 }

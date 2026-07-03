@@ -2,11 +2,13 @@ import { useState, useMemo } from 'react';
 import { Card, CardHeader, CardBody } from '@/components/ui';
 import { states } from '@/data';
 import { useAuditStore } from '@/stores/useAuditStore';
+import { useFilterStore } from '@/stores/useFilterStore';
 import { Landmark } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export function CapitalEstimator() {
   const { addAuditLog } = useAuditStore();
+  const { clarityEnacted } = useFilterStore();
   const [selectedStates, setSelectedStates] = useState<string[]>(['MT', 'WY', 'TX', 'CA']);
   const [leverageRatio, setLeverageRatio] = useState<number>(20); // default 20% collateral ratio
   const [monthlyBurn, setMonthlyBurn] = useState<number>(45000); // default operational burn rate
@@ -27,6 +29,7 @@ export function CapitalEstimator() {
   const calculations = useMemo(() => {
     // 1. Licensing Fees (Parsed from actual state estCost data)
     const fees = activeStates.reduce((acc, s) => {
+      if (clarityEnacted && s.nmlsRequired) return acc; // Preempted under CLARITY Act
       if (s.estCost) {
         const parsed = parseInt(s.estCost.replace(/[^0-9]/g, ''));
         return acc + (isNaN(parsed) ? 15000 : parsed * (s.estCost.includes('K') ? 1000 : 1));
@@ -36,12 +39,14 @@ export function CapitalEstimator() {
 
     // 2. Surety Bonds (Aggregate state surety bond values)
     const totalBonds = activeStates.reduce((acc, s) => {
+      if (clarityEnacted && s.nmlsRequired) return acc; // Preempted under CLARITY Act
       if (s.suretyBond) {
-        const val = parseInt(s.suretyBond.replace(/[^0-9]/g, '')) || 250000;
+        const val = parseInt(s.suretyBond.replace(/[^0-9]/g, '')) || 0;
         return acc + val;
       }
-      return acc + 100000; // default default
+      return acc;
     }, 0);
+
 
     // 3. Cash Collateral required (Surety Bonds * leverage ratio)
     const cashCollateral = Math.round(totalBonds * (leverageRatio / 100));
@@ -58,7 +63,7 @@ export function CapitalEstimator() {
     const totalReserve = fees + cashCollateral + minNetWorth;
 
     return { fees, totalBonds, cashCollateral, minNetWorth, totalReserve };
-  }, [activeStates, leverageRatio]);
+  }, [activeStates, leverageRatio, clarityEnacted]);
 
   // Burn rate calculations for 12 months
   const monthlyProjection = useMemo(() => {

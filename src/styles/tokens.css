@@ -1,21 +1,54 @@
 :root {
-  --navy: #1e2a3a; --navy-deep: #15202b;
-  --ice: #f8fafc; --ice-soft: #f1f5f9;
-  --grey: #64748b; --grey-light: #94a3b8; --grey-dark: #475569;
-  --line: #e2e8f0; --card: #ffffff;
-  --green: #10b981; --green-bg: #d1fae5;
-  --amber: #f59e0b; --amber-bg: #fef3c7;
-  --red: #ef4444; --red-bg: #fee2e2;
-  --status-ready: var(--green); --status-ready-bg: var(--green-bg);
-  --status-conditional: var(--amber); --status-conditional-bg: var(--amber-bg);
-  --status-blocked: var(--red); --status-blocked-bg: var(--red-bg);
-  --status-deferred: var(--grey); --status-deferred-bg: var(--ice-soft);
-  --status-unverified: var(--grey); --status-unverified-bg: var(--ice-soft);
+  --navy: #0f172a;
+  --navy-deep: #020617;
+  --ice: #f8fafc;
+  --ice-soft: #f1f5f9;
+  --grey: #64748b;
+  --grey-light: #cbd5e1;
+  --grey-dark: #334155;
+  --line: #e2e8f0;
+  --card: #ffffff;
+  
+  /* Muted Status Colors - Professional Palettes */
+  --green: #0d9488;
+  --green-bg: rgba(13, 148, 136, 0.08);
+  --amber: #d97706;
+  --amber-bg: rgba(217, 119, 6, 0.08);
+  --red: #e11d48;
+  --red-bg: rgba(225, 29, 72, 0.08);
+  --indigo: #4f46e5;
+  --indigo-bg: rgba(79, 70, 229, 0.08);
+
+  --status-ready: var(--green);
+  --status-ready-bg: var(--green-bg);
+  --status-conditional: var(--amber);
+  --status-conditional-bg: var(--amber-bg);
+  --status-blocked: var(--red);
+  --status-blocked-bg: var(--red-bg);
+  --status-deferred: var(--grey);
+  --status-deferred-bg: var(--ice-soft);
+  --status-unverified: var(--indigo);
+  --status-unverified-bg: var(--indigo-bg);
 }
+
 .dark {
-  --navy: #0f172a; --navy-deep: #020617;
-  --ice: #1e293b; --ice-soft: #334155;
-  --grey: #94a3b8; --grey-light: #cbd5e1; --grey-dark: #64748b;
-  --line: #334155; --card: #1e293b;
-  --green-bg: #064e3b; --amber-bg: #78350f; --red-bg: #7f1d1d;
+  --navy: #f8fafc;
+  --navy-deep: #090d16;
+  --ice: #0f172a;
+  --ice-soft: #1e293b;
+  --grey: #94a3b8;
+  --grey-light: #475569;
+  --grey-dark: #cbd5e1;
+  --line: #1e293b;
+  --card: #111827;
+
+  --green: #2dd4bf;
+  --green-bg: rgba(45, 212, 191, 0.12);
+  --amber: #fbbf24;
+  --amber-bg: rgba(251, 191, 36, 0.12);
+  --red: #fb7185;
+  --red-bg: rgba(251, 113, 133, 0.12);
+  --indigo: #818cf8;
+  --indigo-bg: rgba(129, 140, 248, 0.12);
 }
+

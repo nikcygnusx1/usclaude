@@ -50,16 +50,7 @@ export function InspectorDrawer({ isOpen, onClose, title, children }: InspectorD
           'w-full sm:w-[460px] h-full bg-card border-l border-line shadow-2xl flex flex-col outline-none overflow-hidden animate-slide-in text-navy dark:text-ice'
         )}
       >
-        {/* Style block for local drawer slide animation */}
-        <style>{`
-          @keyframes slide-in {
-            from { transform: translateX(100%); }
-            to { transform: translateX(0); }
-          }
-          .animate-slide-in {
-            animation: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          }
-        `}</style>
+
 
         {/* Drawer Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-line bg-ice-soft dark:bg-ice-soft/10">

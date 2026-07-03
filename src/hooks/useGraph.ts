@@ -4,8 +4,9 @@ import dagre from 'dagre';
 import { ontologyGraph } from '@/data/ontology';
 import { RegulatoryNode, Status, Requirement, Phase } from '@/types/ontology';
 
-const NODE_WIDTH = 240;
-const NODE_HEIGHT = 90;
+const NODE_WIDTH = 250;
+const NODE_HEIGHT = 100;
+
 
 function layout(
   nodes: RegulatoryNode[],
