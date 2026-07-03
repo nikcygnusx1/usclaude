@@ -12,14 +12,14 @@ interface RiskCoord {
 }
 
 const RISK_COORDINATES: RiskCoord[] = [
-  { rfId: 'rf-cfius', prob: 4, sev: 5 }, // Entity registration gaps / foreign control
-  { rfId: 'rf-mica-drift', prob: 3, sev: 4 }, // MiCA alignment conflations
-  { rfId: 'rf-spdi-custody', prob: 2, sev: 5 }, // Custody control points
-  { rfId: 'rf-staking-securities', prob: 5, sev: 4 }, // Staking self-listings
-  { rfId: 'rf-corp-delay', prob: 3, sev: 3 }, // Corporate structures setup delays
-  { rfId: 'rf-nmls-wave', prob: 2, sev: 4 }, // Multi-state timeline gaps
-  { rfId: 'rf-travel-rule', prob: 4, sev: 3 }, // Travel-rule automated screening
-  { rfId: 'rf-exemption-rules', prob: 3, sev: 2 }, // Exemption definitions
+  { rfId: 'entity_status', prob: 5, sev: 5 },
+  { rfId: 'mica_conflation', prob: 3, sev: 4 },
+  { rfId: 'custody_control', prob: 4, sev: 5 },
+  { rfId: 'stablecoin_issuance', prob: 3, sev: 4 },
+  { rfId: 'lcx_token_securities', prob: 5, sev: 5 },
+  { rfId: 'banking_gap', prob: 3, sev: 3 },
+  { rfId: 'ny_premature_entry', prob: 4, sev: 5 },
+  { rfId: 'ftc_marketing_liability', prob: 2, sev: 2 },
 ];
 
 // Helper to determine cell background in a 5x5 grid
@@ -31,11 +31,10 @@ const getMatrixCellColor = (prob: number, sev: number) => {
 };
 
 export function RedFlags() {
-  const { resolvedRemediations, toggleRemediation, addAuditLog } = useAuditStore();
+  const { resolvedRemediations, toggleRemediation, addAuditLog, evidenceNotes, updateEvidenceNote } = useAuditStore();
 
   // Grid filter states
   const [selectedCell, setSelectedCell] = useState<{ prob: number; sev: number } | null>(null);
-  const [evidenceNotes, setEvidenceNotes] = useState<Record<string, string>>({});
 
   // Calculations
   const totalRemediations = redFlags.reduce((acc, rf) => acc + rf.remediations.length, 0);
@@ -113,7 +112,12 @@ export function RedFlags() {
 
           <div className="flex-1 flex flex-col justify-between h-[250px] relative select-none">
             {/* Grid rows (Y: Probability 5 down to 1) */}
-            <div className="flex-1 flex flex-col justify-between border-l border-b border-line pl-1 pb-1 relative">
+            <div className="flex-1 flex justify-between border-l border-b border-line pl-1 pb-1 relative">
+              {/* Y-axis label */}
+              <div className="absolute -left-5 top-1/2 -translate-y-1/2 -rotate-90 text-[9px] font-bold text-grey uppercase font-mono whitespace-nowrap">
+                Probability
+              </div>
+              <div className="flex-1 flex flex-col justify-between">
               {Array.from({ length: 5 }).map((_, rIdx) => {
                 const prob = 5 - rIdx;
                 return (
@@ -145,9 +149,10 @@ export function RedFlags() {
                   </div>
                 );
               })}
+              </div>
             </div>
             {/* Axes Labels */}
-            <div className="flex justify-between text-[8px] font-bold text-grey uppercase font-mono mt-1 px-1">
+            <div className="flex justify-between text-[9px] font-bold text-grey uppercase font-mono mt-1 px-1">
               <span>Impact 1 (Low)</span>
               <span>Impact 5 (Critical)</span>
             </div>
@@ -222,7 +227,7 @@ export function RedFlags() {
                     <div className="flex justify-between items-start gap-2">
                       <div>
                         <h3 className="font-bold text-sm leading-snug">{rf.title}</h3>
-                        <div className="text-[8px] font-mono text-grey uppercase tracking-wider mt-0.5">
+                        <div className="text-[9px] font-mono text-grey uppercase tracking-wider mt-0.5">
                           Coordinate: Prob {coords.prob} / Sev {coords.sev} · Risk: {rf.risk}
                         </div>
                       </div>
@@ -278,7 +283,7 @@ export function RedFlags() {
                         <textarea
                           rows={1}
                           value={evidenceNotes[rf.id] || ''}
-                          onChange={e => setEvidenceNotes(prev => ({ ...prev, [rf.id]: e.target.value }))}
+                          onChange={e => updateEvidenceNote(rf.id, e.target.value)}
                           placeholder="Input counsel legal citations, bylaws sections, or verification hashes..."
                           className="flex-1 rounded border border-line bg-ice-soft dark:bg-navy-deep p-2 text-xs focus:outline-none placeholder-grey/50 font-mono"
                         />

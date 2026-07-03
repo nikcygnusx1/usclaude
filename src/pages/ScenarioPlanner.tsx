@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useAuditStore } from '@/stores/useAuditStore';
 import { Sliders, Terminal } from 'lucide-react';
 import { clsx } from 'clsx';
+import { states } from '@/data';
 
 interface PolicyScenario {
   id: string;
@@ -10,12 +11,30 @@ interface PolicyScenario {
   effect: string;
 }
 
+// Compute dynamic counts from real data
+const nmlsCount = states.filter(s => s.nmlsRequired && s.tier !== 'Unresearched').length;
+const nmlsDisplay = nmlsCount > 0 ? nmlsCount : 46;
+
+function parseCostValue(cost: string | undefined): number {
+  if (!cost) return 0;
+  const cleaned = cost.replace(/[^0-9.]/g, '');
+  return parseFloat(cleaned) || 0;
+}
+
+const maxNetWorth = Math.max(
+  ...states.filter(s => s.tier !== 'Unresearched').map(s => parseCostValue(s.minNetWorth)),
+  0
+);
+const netWorthDisplay = maxNetWorth > 0
+  ? `$${maxNetWorth.toLocaleString()}`
+  : '$15,000,000';
+
 const POLICY_SCENARIOS: PolicyScenario[] = [
   {
     id: 'clarity-act',
     name: 'H.R. 3633 CLARITY Act preemption',
     desc: 'Simulates federal preemption of state Money Transmitter Licenses (MTLs) for SEC/CFTC registered spot exchanges.',
-    effect: 'Preempts Money Transmitter License requirements across 46 states, turning gates green.',
+    effect: `Preempts Money Transmitter License requirements across ${nmlsDisplay} states, turning gates green.`,
   },
   {
     id: 'mica-passport',
@@ -30,6 +49,12 @@ const POLICY_SCENARIOS: PolicyScenario[] = [
     effect: 'Exempts SPDI operators from the New York BitLicense, saving $250K+ in licensing costs.',
   },
 ];
+
+interface RuleEntry {
+  originalText: string;
+  isChanged: boolean;
+  tag?: string;
+}
 
 export function ScenarioPlanner() {
   const { addAuditLog } = useAuditStore();
@@ -49,34 +74,46 @@ export function ScenarioPlanner() {
   };
 
   const beforeRules = [
-    'State Money Transmitter License (MTL) required across 46 states.',
+    `State Money Transmitter License (MTL) required across ${nmlsDisplay} states.`,
     'New York BitLicense application required (Estimated $250K cost).',
     'CFIUS mandatory foreign parent filing (Liechtenstein LLC covenants).',
-    'Minimum net worth ceiling of $15,000,000 required globally.',
+    `Minimum net worth ceiling of ${netWorthDisplay} required globally.`,
     'OFAC / TRUST automated Travel-Rule integration required.',
   ];
 
-  const afterRules = useMemo(() => {
-    const rules = [...beforeRules];
+  const afterRules: RuleEntry[] = useMemo(() => {
+    const rules: RuleEntry[] = beforeRules.map(r => ({ originalText: r, isChanged: false }));
 
     if (activeScenarios['clarity-act']) {
-      const idx = rules.findIndex(r => r.includes('Money Transmitter License'));
+      const idx = rules.findIndex(r => r.originalText.includes('Money Transmitter License'));
       if (idx !== -1) {
-        rules[idx] = '~~State Money Transmitter License (MTL)~~ [PREEMPTED BY H.R. 3633]';
+        rules[idx] = {
+          originalText: rules[idx].originalText,
+          isChanged: true,
+          tag: 'PREEMPTED BY H.R. 3633',
+        };
       }
     }
 
     if (activeScenarios['wyoming-SPDI-equivalence']) {
-      const idx = rules.findIndex(r => r.includes('New York BitLicense'));
+      const idx = rules.findIndex(r => r.originalText.includes('New York BitLicense'));
       if (idx !== -1) {
-        rules[idx] = '~~New York BitLicense~~ [EXEMPT VIA SPDI TRUST RECIPROCITY]';
+        rules[idx] = {
+          originalText: rules[idx].originalText,
+          isChanged: true,
+          tag: 'EXEMPT VIA SPDI TRUST RECIPROCITY',
+        };
       }
     }
 
     if (activeScenarios['mica-passport']) {
-      const idx = rules.findIndex(r => r.includes('CFIUS mandatory'));
+      const idx = rules.findIndex(r => r.originalText.includes('CFIUS mandatory'));
       if (idx !== -1) {
-        rules[idx] = '~~CFIUS mandatory filing~~ [RESOLVED BY MICA RECIPROCATION]';
+        rules[idx] = {
+          originalText: rules[idx].originalText,
+          isChanged: true,
+          tag: 'RESOLVED BY MICA RECIPROCATION',
+        };
       }
     }
 
@@ -162,18 +199,25 @@ export function ScenarioPlanner() {
               <Terminal size={11} className="text-cyan-500" />
             </div>
             <div className="flex-1 p-4 overflow-y-auto space-y-3 font-mono leading-relaxed text-slate-300">
-              {afterRules.map((rule, idx) => {
-                const isChanged = rule.includes('[PREEMPTED') || rule.includes('[EXEMPT') || rule.includes('[RESOLVED');
-                return (
-                  <div key={idx} className={clsx('flex gap-2', isChanged && 'text-green-400 font-semibold')}>
-                    <span className="text-slate-500 select-none">{(idx + 1).toString().padStart(2, '0')}</span>
-                    <span className={clsx('font-bold shrink-0', isChanged ? 'text-green-400' : 'text-slate-500')}>
-                      {isChanged ? '[+]' : '[ ]'}
-                    </span>
-                    <span>{rule}</span>
-                  </div>
-                );
-              })}
+              {afterRules.map((rule, idx) => (
+                <div key={idx} className={clsx('flex gap-2', rule.isChanged && 'text-green-400 font-semibold')}>
+                  <span className="text-slate-500 select-none">{(idx + 1).toString().padStart(2, '0')}</span>
+                  <span className={clsx('font-bold shrink-0', rule.isChanged ? 'text-green-400' : 'text-slate-500')}>
+                    {rule.isChanged ? '[+]' : '[ ]'}
+                  </span>
+                  <span>
+                    {rule.isChanged ? (
+                      <>
+                        <span className="line-through opacity-50">{rule.originalText}</span>
+                        {' '}
+                        <span className="text-cyan-400 font-bold">[{rule.tag}]</span>
+                      </>
+                    ) : (
+                      rule.originalText
+                    )}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 

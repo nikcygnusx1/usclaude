@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useAuditStore } from '@/stores/useAuditStore';
-import { Scale } from 'lucide-react';
+import { Scale, RotateCcw } from 'lucide-react';
 import { clsx } from 'clsx';
+import { products } from '@/data';
 
 interface HoweyFactor {
   id: string;
@@ -9,9 +10,10 @@ interface HoweyFactor {
   weight: number;
 }
 
-const PRONG_FACTORS: Record<string, { title: string; factors: HoweyFactor[] }> = {
+const PRONG_FACTORS: Record<string, { title: string; prongKey: keyof NonNullable<typeof products[number]['howeyAnalysis']>; factors: HoweyFactor[] }> = {
   prong1: {
     title: '1. Investment of Money',
+    prongKey: 'investmentOfMoney',
     factors: [
       { id: 'fiat-purchase', label: 'Purchased directly with fiat currency or standard tokens (+20)', weight: 20 },
       { id: 'airdrop', label: 'Distributed entirely via free marketing airdrops (-15)', weight: -15 },
@@ -20,6 +22,7 @@ const PRONG_FACTORS: Record<string, { title: string; factors: HoweyFactor[] }> =
   },
   prong2: {
     title: '2. Common Enterprise',
+    prongKey: 'commonEnterprise',
     factors: [
       { id: 'pooled-treasury', label: 'Funds pooled in a centralized corporate treasury (+20)', weight: 20 },
       { id: 'dao-nodes', label: 'Decentralized nodes receive independent fees (-15)', weight: -15 },
@@ -28,6 +31,7 @@ const PRONG_FACTORS: Record<string, { title: string; factors: HoweyFactor[] }> =
   },
   prong3: {
     title: '3. Expectation of Profits',
+    prongKey: 'profitExpectation',
     factors: [
       { id: 'passive-returns', label: 'Official materials promote passive investment yields (+25)', weight: 25 },
       { id: 'gas-utility', label: 'Exclusively serves as L1 gas utility with zero yields (-15)', weight: -15 },
@@ -36,6 +40,7 @@ const PRONG_FACTORS: Record<string, { title: string; factors: HoweyFactor[] }> =
   },
   prong4: {
     title: '4. Efforts of Others',
+    prongKey: 'effortsOfOthers',
     factors: [
       { id: 'central-issuer', label: 'Managed by a centralized founding team (+25)', weight: 25 },
       { id: 'active-dao', label: 'Fully governed via active, decentralized votes (-20)', weight: -20 },
@@ -48,6 +53,11 @@ export function HoweyCalculator() {
   const { addAuditLog } = useAuditStore();
   const [tokenSymbol, setTokenSymbol] = useState<string>('LCX');
   const [checkedFactors, setCheckedFactors] = useState<Record<string, boolean>>({});
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+
+  const selectedProduct = useMemo(() => {
+    return products.find(p => p.id === selectedProductId) ?? null;
+  }, [selectedProductId]);
 
   const handleCheckboxChange = (factorId: string) => {
     setCheckedFactors(prev => {
@@ -56,6 +66,11 @@ export function HoweyCalculator() {
       addAuditLog(`Howey Analysis: ${tokenSymbol} factor [${factorId}] was ${action}.`, 'Scenario');
       return next;
     });
+  };
+
+  const handleResetAll = () => {
+    setCheckedFactors({});
+    addAuditLog(`Howey Analysis: All factors reset for ${tokenSymbol}.`, 'Scenario');
   };
 
   // Calculate overall Howey Score
@@ -108,16 +123,42 @@ export function HoweyCalculator() {
           </p>
         </div>
         
-        {/* Token Symbol Input */}
-        <div className="flex items-center gap-2 border border-line bg-card rounded px-3 py-1 shrink-0">
-          <span className="text-[10px] font-bold text-grey uppercase tracking-wider">Asset:</span>
-          <input
-            type="text"
-            value={tokenSymbol}
-            onChange={e => setTokenSymbol(e.target.value.toUpperCase())}
-            className="w-16 h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep text-center text-xs font-bold font-mono focus:outline-none"
-          />
+        {/* Token Symbol Input + Reset */}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={handleResetAll}
+            className="flex items-center gap-1.5 border border-line bg-card rounded px-3 py-1.5 text-[10px] font-bold text-grey uppercase tracking-wider hover:bg-ice-soft/20 dark:hover:bg-navy-deep/50 transition-colors"
+          >
+            <RotateCcw size={11} />
+            Reset All Factors
+          </button>
+          <div className="flex items-center gap-2 border border-line bg-card rounded px-3 py-1 shrink-0">
+            <span className="text-[10px] font-bold text-grey uppercase tracking-wider">Asset:</span>
+            <input
+              type="text"
+              value={tokenSymbol}
+              onChange={e => setTokenSymbol(e.target.value.toUpperCase())}
+              className="w-16 h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep text-center text-xs font-bold font-mono focus:outline-none"
+            />
+          </div>
         </div>
+      </div>
+
+      {/* Product Selector */}
+      <div className="shrink-0 flex items-center gap-3 bg-card border border-line rounded-lg px-4 py-2.5">
+        <span className="text-[10px] font-bold text-grey uppercase tracking-wider whitespace-nowrap">Reference Product:</span>
+        <select
+          value={selectedProductId}
+          onChange={e => setSelectedProductId(e.target.value)}
+          className="flex-1 h-8 rounded border border-line bg-ice-soft dark:bg-navy-deep text-xs font-semibold font-mono focus:outline-none px-2 text-navy dark:text-ice"
+        >
+          <option value="">— Select a product to view Howey analysis —</option>
+          {products.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.name} {p.howeyScore !== undefined ? `(Howey: ${p.howeyScore}%)` : ''}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Main split work grid */}
@@ -127,6 +168,7 @@ export function HoweyCalculator() {
         <div className="flex-1 bg-card border border-line rounded-lg p-4 overflow-y-auto space-y-4 shadow-sm">
           {Object.keys(PRONG_FACTORS).map(prongKey => {
             const prong = PRONG_FACTORS[prongKey];
+            const productAnalysis = selectedProduct?.howeyAnalysis?.[prong.prongKey];
             return (
               <div key={prongKey} className="space-y-2">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-grey border-b border-line pb-1">
@@ -157,6 +199,15 @@ export function HoweyCalculator() {
                     );
                   })}
                 </div>
+                {/* Show product's real Howey analysis for this prong */}
+                {productAnalysis && (
+                  <div className="ml-1 mt-1 px-3 py-2 rounded border border-cyan-500/20 bg-cyan-500/5 text-[11px] leading-relaxed text-grey-dark dark:text-grey-light">
+                    <span className="font-bold text-[9px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                      {selectedProduct?.name} — Analysis:
+                    </span>
+                    <p className="mt-0.5">{productAnalysis}</p>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -191,7 +242,7 @@ export function HoweyCalculator() {
             </svg>
             <div className="absolute flex flex-col items-center justify-center font-mono">
               <span className="text-3xl font-extrabold text-navy dark:text-ice">{scoreResult}%</span>
-              <span className="text-[8px] text-grey uppercase tracking-wider font-bold">Howey Index</span>
+              <span className="text-[9px] text-grey uppercase tracking-wider font-bold">Howey Index</span>
             </div>
           </div>
 
@@ -201,8 +252,20 @@ export function HoweyCalculator() {
             <p className="leading-relaxed text-[11px]">{secRisk.desc}</p>
           </div>
 
-          <div className="pt-2 border-t border-line text-[9px] text-grey text-center leading-normal">
-            Calculated score integrates asset properties and management covenants against case-law precedents.
+          {/* Product reference score */}
+          {selectedProduct && selectedProduct.howeyScore !== undefined && (
+            <div className="w-full rounded border border-cyan-500/20 bg-cyan-500/5 p-3 text-center space-y-1">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 block">
+                {selectedProduct.name} Reference Score
+              </span>
+              <span className="text-lg font-extrabold font-mono text-navy dark:text-ice">{selectedProduct.howeyScore}%</span>
+            </div>
+          )}
+
+          {/* Base score note */}
+          <div className="pt-2 border-t border-line text-[9px] text-grey text-center leading-normal space-y-1">
+            <p>Base assessment score: 30% (adjusted by selected factors)</p>
+            <p>Calculated score integrates asset properties and management covenants against case-law precedents.</p>
           </div>
         </div>
 

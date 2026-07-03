@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui';
 import { products } from '@/data';
@@ -51,8 +51,7 @@ export function ProductMatrix() {
 
   const handleLinkToOntology = (id: string) => {
     addAuditLog(`CCO redirected to Ontology focusing on: [${id}]`, 'Audit');
-    // Navigate with state payload
-    navigate('/ontology', { state: { selectedNodeId: id } });
+    navigate('/ontology?focus=' + id);
   };
 
   return (
@@ -89,7 +88,7 @@ export function ProductMatrix() {
 
       {/* Category Toolbar Filter */}
       <div className="flex gap-2 border-b border-line pb-2.5 shrink-0 overflow-x-auto">
-        {['all', 'Exchange', 'Custody', 'Fiat', 'Stablecoin', 'Token'].map(cat => (
+        {['all', 'Exchange', 'Custody', 'Fiat', 'Stablecoin', 'DeFi', 'Token'].map(cat => (
           <button
             key={cat}
             onClick={() => setCategoryFilter(cat)}
@@ -109,7 +108,7 @@ export function ProductMatrix() {
       <div className="flex-1 bg-card border border-line rounded-lg overflow-y-auto shadow-sm min-h-0">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="bg-ice-soft/40 dark:bg-navy-deep/20 border-b border-line text-[10px] uppercase font-bold text-grey select-none">
+            <tr className="bg-ice-soft/40 dark:bg-navy-deep/20 border-b border-line text-[10px] uppercase font-bold text-grey select-none" role="row">
               <th className="py-2.5 px-4 w-8"></th>
               <th className="py-2.5 px-3">Product / Asset</th>
               <th className="py-2.5 px-3">Category</th>
@@ -123,7 +122,7 @@ export function ProductMatrix() {
             {filteredProducts.map(p => {
               const isExpanded = !!expandedRows[p.id];
               return (
-                <optgroup key={p.id} label={p.name} className="contents">
+                <React.Fragment key={p.id}>
                   <tr
                     onClick={() => toggleRow(p.id)}
                     className={clsx(
@@ -221,7 +220,7 @@ export function ProductMatrix() {
                       </td>
                     </tr>
                   )}
-                </optgroup>
+                </React.Fragment>
               );
             })}
           </tbody>

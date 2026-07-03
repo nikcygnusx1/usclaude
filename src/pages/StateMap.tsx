@@ -47,7 +47,8 @@ export function StateMap() {
 
   const filteredStates = useMemo(() => {
     return states.filter(s => {
-      if (s.tier === 'Unresearched') return false; // Hide unresearched states on the map for cleanliness
+      // Show all states including unresearched — they'll be styled differently in the grid
+      if (s.tier === 'Unresearched') return true;
       
       const matchNmls = nmlsFilter === 'all' || (nmlsFilter === 'yes' && s.nmlsRequired) || (nmlsFilter === 'no' && !s.nmlsRequired);
       const matchSandbox = sandboxFilter === 'all' || (sandboxFilter === 'yes' && s.sandboxAvailable) || (sandboxFilter === 'no' && !s.sandboxAvailable);
@@ -189,11 +190,35 @@ export function StateMap() {
             {/* Generate all 50 states mapped to coordinates */}
             {states.map(s => {
               const pos = gridPositions[s.abbreviation];
-              if (!pos) return null; // Hide unresearched or unplaced states
+              if (!pos) return null; // Skip states without grid positions
 
+              const isUnresearched = s.tier === 'Unresearched';
               const isActive = filteredStates.some(x => x.id === s.id);
               const colorClass = statusGlow[s.status] || 'bg-status-deferred/10 border-status-deferred/30';
               const borderClass = statusBorder[s.status] || 'border-l-status-deferred';
+
+              // Unresearched states: visible but faint, non-clickable
+              if (isUnresearched) {
+                return (
+                  <div
+                    key={s.id}
+                    title="Not yet researched"
+                    style={{
+                      gridRow: pos.r,
+                      gridColumn: pos.c,
+                    }}
+                    className="flex flex-col items-center justify-between rounded p-1.5 text-left w-full h-full border-l-4 select-none bg-slate-100 dark:bg-slate-800/30 border border-dashed border-slate-300 dark:border-slate-700 border-l-slate-300 dark:border-l-slate-700 text-slate-400"
+                  >
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[11px] font-extrabold font-mono tracking-tight text-slate-400">{s.abbreviation}</span>
+                      <span className="h-1.5 w-1.5 rounded-full block bg-slate-300 dark:bg-slate-600" />
+                    </div>
+                    <div className="w-full text-right">
+                      <span className="text-[9px] text-slate-400 block font-sans truncate font-semibold uppercase">—</span>
+                    </div>
+                  </div>
+                );
+              }
 
               return (
                 <button
@@ -214,7 +239,7 @@ export function StateMap() {
                     <span className="h-1.5 w-1.5 rounded-full block" style={{ backgroundColor: s.status === 'Ready' ? '#10b981' : s.status === 'Blocked' ? '#ef4444' : s.status === 'Conditional' ? '#f59e0b' : '#64748b' }} />
                   </div>
                   <div className="w-full text-right">
-                    <span className="text-[7px] text-grey-dark block font-sans truncate font-semibold uppercase">{s.estTimeline || 'N/A'}</span>
+                    <span className="text-[9px] text-grey-dark block font-sans truncate font-semibold uppercase">{s.estTimeline || 'N/A'}</span>
                   </div>
                 </button>
               );

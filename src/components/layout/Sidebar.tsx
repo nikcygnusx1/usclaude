@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, GitBranch, Map, Grid3X3, Sliders, Settings, ChevronLeft, ChevronRight, Scale, ToggleLeft, ListTodo, FileText, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, GitBranch, Map, Grid3X3, Sliders, Settings, ChevronLeft, ChevronRight, Scale, ToggleLeft, ListTodo, FileText, DollarSign, Calendar, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useUIStore } from '@/stores/useUIStore';
 import { useFilterStore } from '@/stores/useFilterStore';
 import { useAuditStore } from '@/stores/useAuditStore';
@@ -27,9 +27,18 @@ const navigation = [
 const statuses: Status[] = ['Ready', 'Conditional', 'Blocked', 'Deferred', 'Needs verification'];
 const phases: Phase[] = ['Pre-launch', 'Phase 1', 'Phase 2', 'Phase 3', 'Post-CLARITY'];
 
+const domainShortLabels: Record<string, string> = {
+  'Surveillance, travel-rule, sanctions, and reporting': 'Surveillance & Sanctions',
+  'Anti-fraud and unfair-practices enforcement': 'Anti-Fraud Enforcement',
+  'Custody, reserves, and insurance requirements': 'Custody & Reserves',
+  'Digital commodity classification and listing': 'Commodity Classification',
+  'Consumer-protection disclosures and advertising': 'Consumer Protection',
+  'Corporate governance and CCO obligations': 'Governance & CCO',
+};
+
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
-  const { selectedStatuses, setFilter, selectedPhases, selectedDomains } = useFilterStore();
+  const { selectedStatuses, setFilter, selectedPhases, selectedDomains, resetFilters } = useFilterStore();
   const { resolvedRemediations } = useAuditStore();
 
   const unresolvedCount = redFlags.filter(rf => {
@@ -41,6 +50,8 @@ export function Sidebar() {
     if (selected.includes(item)) setFilter(key, selected.filter((i: any) => i !== item));
     else setFilter(key, [...selected, item]);
   };
+
+  const hasActiveFilters = selectedStatuses.length > 0 || selectedPhases.length > 0 || selectedDomains.length > 0;
 
   return (
     <aside className={clsx('flex flex-col border-r border-line bg-card transition-all duration-300 overflow-y-auto', sidebarCollapsed ? 'w-14' : 'w-64')}>
@@ -78,13 +89,22 @@ export function Sidebar() {
       </nav>
       {!sidebarCollapsed && (
         <div className="p-3 space-y-2 border-t border-line">
-          <h3>Status</h3>
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-red-500 hover:text-red-600 transition-colors mb-1"
+            >
+              <RotateCcw size={10} />
+              Clear All Filters
+            </button>
+          )}
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-grey mt-3 mb-1">Status</h3>
           <div className="flex flex-wrap gap-1">{statuses.map(s => <button key={s} onClick={() => toggle(s, 'selectedStatuses', selectedStatuses)} className={clsx('text-xs border rounded-full px-2', selectedStatuses.includes(s) ? 'bg-navy text-white' : '')}>{s}</button>)}</div>
-          <h3>Phase</h3>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-grey mt-3 mb-1">Phase</h3>
           <div className="flex flex-wrap gap-1">{phases.map(p => <button key={p} onClick={() => toggle(p, 'selectedPhases', selectedPhases)} className={clsx('text-xs border rounded-full px-2', selectedPhases.includes(p) ? 'bg-navy text-white' : '')}>{p}</button>)}</div>
-          <h3>Domain</h3>
-          <div className="flex flex-wrap gap-1">{domains.map(d => <button key={d.id} onClick={() => toggle(d.id, 'selectedDomains', selectedDomains)} className={clsx('text-xs border rounded-full px-2', selectedDomains.includes(d.id) ? 'bg-navy text-white' : '')}>{d.name}</button>)}</div>
-          <h3>Legend</h3>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-grey mt-3 mb-1">Domain</h3>
+          <div className="flex flex-wrap gap-1">{domains.map(d => <button key={d.id} onClick={() => toggle(d.id, 'selectedDomains', selectedDomains)} className={clsx('text-xs border rounded-full px-2 truncate max-w-[200px]', selectedDomains.includes(d.id) ? 'bg-navy text-white' : '')}>{domainShortLabels[d.name] || d.name}</button>)}</div>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-grey mt-3 mb-1">Legend</h3>
           <div className="text-xs">
             <div><span className="inline-block w-3 h-3 rounded-full bg-status-ready mr-1"></span> Ready</div>
             <div><span className="inline-block w-3 h-3 rounded-full bg-status-conditional mr-1"></span> Conditional</div>

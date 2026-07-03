@@ -107,7 +107,7 @@ const LAUNCH_MILESTONES: Milestone[] = [
 ];
 
 export function Roadmap() {
-  const { addAuditLog } = useAuditStore();
+  useAuditStore();
   const [hoveredMilestoneId, setHoveredMilestoneId] = useState<string | null>(null);
 
   // Compute dependency highlights
@@ -127,9 +127,6 @@ export function Roadmap() {
 
   const handleMilestoneHover = (id: string | null) => {
     setHoveredMilestoneId(id);
-    if (id) {
-      addAuditLog(`CCO traced timeline dependencies for milestone: [${id}]`, 'Audit');
-    }
   };
 
   return (
@@ -165,17 +162,17 @@ export function Roadmap() {
           </div>
 
           {/* SVG Dependency Vector Overlays */}
-          <svg className="absolute inset-0 h-full w-full pointer-events-none z-10">
+          <svg className="absolute inset-0 h-full w-full pointer-events-none z-10" viewBox="0 0 1000 200" preserveAspectRatio="none">
             {hoveredMilestoneId && (() => {
               const target = LAUNCH_MILESTONES.find(m => m.id === hoveredMilestoneId);
               if (!target) return null;
 
-              // Find coordinates of target block
+              // Find coordinates of target block (viewBox: 1000 x 200)
               const targetCol = target.startMonth - 1;
               const targetW = target.duration;
               const targetRow = target.row;
 
-              const tX = (targetCol + targetW / 2) * (100 / 24); // center x percentage
+              const tX = ((targetCol + targetW / 2) / 24) * 1000;
               const tY = (targetRow * 60) - 20;
 
               return target.dependencies.map(parentId => {
@@ -186,16 +183,16 @@ export function Roadmap() {
                 const pW = parent.duration;
                 const pRow = parent.row;
 
-                const pX = (pCol + pW / 2) * (100 / 24);
+                const pX = ((pCol + pW / 2) / 24) * 1000;
                 const pY = (pRow * 60) - 20;
 
-                // Draw curve path
+                // Draw curve path using consistent viewBox coordinates
                 return (
                   <path
                     key={parentId}
-                    d={`M ${pX}% ${pY} Q ${(pX + tX) / 2}% ${(pY + tY) / 2 - 20} ${tX}% ${tY}`}
+                    d={`M ${pX} ${pY} Q ${(pX + tX) / 2} ${(pY + tY) / 2 - 20} ${tX} ${tY}`}
                     fill="transparent"
-                    stroke="#06b6d4" // Vibrant Cyan vector line
+                    stroke="#06b6d4"
                     strokeWidth="2"
                     strokeDasharray="4,4"
                     className="animate-pulse-beacon"
@@ -208,7 +205,7 @@ export function Roadmap() {
           {/* Gantt Bar Cards Stack */}
           <div className="space-y-6 relative z-20">
             {/* Track 1 */}
-            <div className="h-10 relative w-full">
+            <div className="h-[200px] relative w-full">
               {LAUNCH_MILESTONES.map(m => {
                 const isHovered = hoveredMilestoneId === m.id;
                 const isHighlighted = highlightedIds.has(m.id);
@@ -238,9 +235,9 @@ export function Roadmap() {
                   >
                     <div className="flex justify-between items-center w-full leading-none">
                       <span className="text-[9px] font-bold truncate max-w-[80%]">{m.name}</span>
-                      <span className="text-[7px] font-mono text-grey uppercase tracking-wider">{m.phase.replace('Phase ', 'P')}</span>
+                      <span className="text-[9px] font-mono text-grey uppercase tracking-wider">{m.phase.replace('Phase ', 'P')}</span>
                     </div>
-                    <div className="text-[7px] text-grey-dark dark:text-grey-light font-mono truncate leading-none mt-0.5">
+                    <div className="text-[9px] text-grey-dark dark:text-grey-light font-mono truncate leading-none mt-0.5">
                       M{m.startMonth} - M{m.startMonth + m.duration} ({m.duration}m)
                     </div>
                   </button>

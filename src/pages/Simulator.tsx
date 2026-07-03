@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useAuditStore } from '@/stores/useAuditStore';
 import { clsx } from 'clsx';
+import { states, products } from '@/data';
 
 interface OptionMetrics {
   id: string;
@@ -17,50 +19,102 @@ interface OptionMetrics {
   blockersCount: number;
 }
 
-const simulatorOptions: OptionMetrics[] = [
-  {
-    id: 'non-custodial',
-    title: 'Option A: Non-Custodial Wallet',
-    desc: 'Crypto-to-crypto non-custodial custody model. Minimizes licensing triggers by routing custody to user-held private keys.',
-    fees: '$25,000',
-    bonds: '$0',
-    netWorth: '$0 (No corporate MTL requirements)',
-    nmlsCount: 1, // Only Montana
-    sandboxes: 1,
-    howeyAvg: '45% (Medium legal risk)',
-    unlockedStates: ['Montana'],
-    blockersCount: 1,
-  },
-  {
-    id: 'spdi-custody',
-    title: 'Option B: SPDI Wyoming Custody',
-    desc: 'Establish Wyoming Special Purpose Depository Institution (SPDI) trust trust custody routing to avoid full multi-state MTL triggers.',
-    fees: '$120,000',
-    bonds: '$500,000',
-    netWorth: '$5,000,000 (Wyoming statutory minimum)',
-    nmlsCount: 5,
-    sandboxes: 2,
-    howeyAvg: '62% (High legal risk)',
-    unlockedStates: ['Wyoming', 'Montana', 'Colorado', 'Utah'],
-    blockersCount: 3,
-  },
-  {
-    id: 'custodial-exchange',
-    title: 'Option C: Custodial Exchange',
-    desc: 'Full custodial fiat-to-crypto retail exchange platform. Triggers absolute state Money Transmitter Licenses (MTLs) and NY BitLicense.',
-    fees: '$840,000',
-    bonds: '$4,250,000',
-    netWorth: '$15,000,000 (Aggregate multi-state ceiling)',
-    nmlsCount: 46,
-    sandboxes: 0,
-    howeyAvg: '80% (Critical legal risk)',
-    unlockedStates: ['All 50 states (excluding restricted territories)'],
-    blockersCount: 22,
-  },
-];
+function parseCost(cost: string | undefined): number {
+  if (!cost) return 0;
+  const cleaned = cost.replace(/[^0-9.]/g, '');
+  return parseFloat(cleaned) || 0;
+}
+
+function formatUSD(amount: number): string {
+  if (amount === 0) return '$0';
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (amount >= 1_000) return `$${Math.round(amount / 1_000).toLocaleString()}K`;
+  return `$${Math.round(amount).toLocaleString()}`;
+}
+
+function useSimulatorOptions(): OptionMetrics[] {
+  return useMemo(() => {
+    // Option A: Non-Custodial — sandbox states or Phase 1 states
+    const optAProduct = products.find(p => p.id === 'NONCUSTODIAL_WALLET');
+    const optAStates = states.filter(
+      s => s.sandboxAvailable === true || s.phase === 'Phase 1'
+    );
+    const optANmls = optAStates.filter(s => s.nmlsRequired).length;
+    const optACost = optAStates.reduce((sum, s) => sum + parseCost(s.estCost), 0);
+    const optABonds = optAStates.reduce((sum, s) => sum + parseCost(s.suretyBond), 0);
+    const optASandboxes = optAStates.filter(s => s.sandboxAvailable).length;
+    const optAHowey = optAProduct?.howeyScore ?? 15;
+
+    // Option B: SPDI Custody — Phase 1 or Phase 2 states with suretyBond
+    const optBProduct = products.find(p => p.id === 'CUSTODY');
+    const optBStates = states.filter(
+      s => (s.phase === 'Phase 1' || s.phase === 'Phase 2') && s.suretyBond !== undefined
+    );
+    const optBNmls = optBStates.filter(s => s.nmlsRequired).length;
+    const optBCost = optBStates.reduce((sum, s) => sum + parseCost(s.estCost), 0);
+    const optBBonds = optBStates.reduce((sum, s) => sum + parseCost(s.suretyBond), 0);
+    const optBSandboxes = optBStates.filter(s => s.sandboxAvailable).length;
+    const optBMaxNetWorth = Math.max(...optBStates.map(s => parseCost(s.minNetWorth)).filter(v => v > 0), 0);
+    const optBHowey = optBProduct?.howeyScore ?? 25;
+
+    // Option C: Full Exchange — all researched states
+    const optCProduct = products.find(p => p.id === 'EXCHANGE');
+    const optCStates = states.filter(s => s.tier !== 'Unresearched');
+    const optCNmls = optCStates.filter(s => s.nmlsRequired).length;
+    const optCCost = optCStates.reduce((sum, s) => sum + parseCost(s.estCost), 0);
+    const optCBonds = optCStates.reduce((sum, s) => sum + parseCost(s.suretyBond), 0);
+    const optCSandboxes = optCStates.filter(s => s.sandboxAvailable).length;
+    const optCMaxNetWorth = Math.max(...optCStates.map(s => parseCost(s.minNetWorth)).filter(v => v > 0), 0);
+    const optCHowey = optCProduct?.howeyScore ?? 45;
+    const optCBlockers = optCStates.filter(s => s.status === 'Blocked').length;
+
+    return [
+      {
+        id: 'non-custodial',
+        title: 'Option A: Non-Custodial Wallet',
+        desc: 'Crypto-to-crypto non-custodial custody model. Minimizes licensing triggers by routing custody to user-held private keys.',
+        fees: optACost > 0 ? formatUSD(optACost) : '$25,000',
+        bonds: optABonds > 0 ? formatUSD(optABonds) : '$0',
+        netWorth: '$0 (No corporate MTL requirements)',
+        nmlsCount: optANmls || 1,
+        sandboxes: optASandboxes || 1,
+        howeyAvg: `${optAHowey}% (${optAHowey >= 75 ? 'Critical' : optAHowey >= 45 ? 'High' : optAHowey >= 25 ? 'Medium' : 'Low'} legal risk)`,
+        unlockedStates: optAStates.length > 0 ? optAStates.map(s => s.abbreviation) : ['MT'],
+        blockersCount: optAStates.filter(s => s.status === 'Blocked').length || 1,
+      },
+      {
+        id: 'spdi-custody',
+        title: 'Option B: SPDI Wyoming Custody',
+        desc: 'Establish Wyoming Special Purpose Depository Institution (SPDI) trust custody routing to avoid full multi-state MTL triggers.',
+        fees: optBCost > 0 ? formatUSD(optBCost) : '$120,000',
+        bonds: optBBonds > 0 ? formatUSD(optBBonds) : '$500,000',
+        netWorth: optBMaxNetWorth > 0 ? `${formatUSD(optBMaxNetWorth)} (Wyoming statutory minimum)` : '$5,000,000 (Wyoming statutory minimum)',
+        nmlsCount: optBNmls || 5,
+        sandboxes: optBSandboxes || 2,
+        howeyAvg: `${optBHowey}% (${optBHowey >= 75 ? 'Critical' : optBHowey >= 45 ? 'High' : optBHowey >= 25 ? 'Medium' : 'Low'} legal risk)`,
+        unlockedStates: optBStates.length > 0 ? optBStates.map(s => s.abbreviation) : ['WY', 'MT', 'CO', 'UT'],
+        blockersCount: optBStates.filter(s => s.status === 'Blocked').length || 3,
+      },
+      {
+        id: 'custodial-exchange',
+        title: 'Option C: Custodial Exchange',
+        desc: 'Full custodial fiat-to-crypto retail exchange platform. Triggers absolute state Money Transmitter Licenses (MTLs) and NY BitLicense.',
+        fees: optCCost > 0 ? formatUSD(optCCost) : '$840,000',
+        bonds: optCBonds > 0 ? formatUSD(optCBonds) : '$4,250,000',
+        netWorth: optCMaxNetWorth > 0 ? `${formatUSD(optCMaxNetWorth)} (Aggregate multi-state ceiling)` : '$15,000,000 (Aggregate multi-state ceiling)',
+        nmlsCount: optCNmls || 46,
+        sandboxes: optCSandboxes,
+        howeyAvg: `${optCHowey}% (${optCHowey >= 75 ? 'Critical' : optCHowey >= 45 ? 'High' : optCHowey >= 25 ? 'Medium' : 'Low'} legal risk)`,
+        unlockedStates: optCStates.length > 0 ? ['All ' + optCStates.length + ' researched states'] : ['All 50 states (excluding restricted territories)'],
+        blockersCount: optCBlockers || 22,
+      },
+    ];
+  }, []);
+}
 
 export function Simulator() {
   const { committedArchitecture, commitArchitecture } = useAuditStore();
+  const simulatorOptions = useSimulatorOptions();
 
   const handleSelectArchitecture = (id: string) => {
     if (committedArchitecture === id) {

@@ -9,7 +9,7 @@ export function BriefGenerator() {
 
   const [selectedTemplate, setSelectedTemplate] = useState<'exec' | 'state' | 'sec'>('exec');
   const [selectedStates, setSelectedStates] = useState<string[]>(['MT', 'WY']);
-  const [selectedProducts, setSelectedProducts] = useState<string[]>(['custodial_wallet', 'lcx_token']);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>(['CUSTODY', 'LCX_TOKEN']);
 
   const handleToggleState = (abbr: string) => {
     setSelectedStates(prev =>
@@ -212,7 +212,7 @@ export function BriefGenerator() {
 
                   <h3 className="text-sm font-bold text-slate-950 border-b border-slate-300 pb-1">3. Capital Requirement Projections</h3>
                   <p>
-                    Based on the active state cohort selection, the aggregate estimated licensing fees sum to <strong>${activeStates.reduce((acc, s) => acc + (s.estCost ? 15000 : 0), 0).toLocaleString()}</strong>. Combined surety bond collateral requirements require a minimum escrow allocation of <strong>${(activeStates.length * 500000).toLocaleString()}</strong>.
+                    Based on the active state cohort selection, the aggregate estimated licensing fees sum to <strong>${activeStates.reduce((acc, s) => { if (s.estCost) { const parsed = parseInt(s.estCost.replace(/[^0-9]/g, '')); return acc + (isNaN(parsed) ? 15000 : parsed * (s.estCost.includes('K') ? 1000 : 1)); } return acc + 15000; }, 0).toLocaleString()}</strong>. Combined surety bond collateral requirements require a minimum escrow allocation of <strong>${activeStates.reduce((acc, s) => { if (s.suretyBond) { const val = parseInt(s.suretyBond.replace(/[^0-9]/g, '')) || 0; return acc + val; } return acc; }, 0).toLocaleString()}</strong>.
                   </p>
                 </div>
               )}
@@ -261,7 +261,7 @@ export function BriefGenerator() {
                 </div>
                 <div className="border-2 border-slate-900 rounded p-2 text-[9px] uppercase tracking-wider text-slate-950 font-bold border-double">
                   [Digitally Certified Stamp]
-                  <span className="block text-[7px] text-slate-500 font-normal">Hash: sha256_e8d21b37</span>
+                  <span className="block text-[9px] text-slate-500 font-normal">Hash: sha256_e8d21b37</span>
                 </div>
               </div>
 

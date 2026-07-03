@@ -8,11 +8,19 @@ import { toBadgeStatus } from '@/lib/status';
 import { State } from '@/types/ontology';
 
 const statusDot: Record<string, string> = {
-  Ready: 'bg-status-ready border-status-ready/30 text-status-ready',
-  Conditional: 'bg-status-conditional border-status-conditional/30 text-status-conditional',
-  Blocked: 'bg-status-blocked border-status-blocked/30 text-status-blocked',
-  Deferred: 'bg-status-deferred border-status-deferred/30 text-status-deferred',
-  'Needs verification': 'bg-status-unverified border-status-unverified/30 text-status-unverified',
+  Ready: 'bg-status-ready',
+  Conditional: 'bg-status-conditional',
+  Blocked: 'bg-status-blocked',
+  Deferred: 'bg-status-deferred',
+  'Needs verification': 'bg-status-unverified',
+};
+
+const statusTileBg: Record<string, string> = {
+  Ready: 'bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-400',
+  Conditional: 'bg-amber-500/10 border-amber-500/25 text-amber-700 dark:text-amber-400',
+  Blocked: 'bg-red-500/10 border-red-500/25 text-red-700 dark:text-red-400',
+  Deferred: 'bg-slate-500/10 border-slate-500/25 text-slate-600 dark:text-slate-400',
+  'Needs verification': 'bg-slate-400/10 border-slate-400/25 text-slate-500 dark:text-slate-400',
 };
 
 const simulatedEvents = [
@@ -54,7 +62,7 @@ export function Dashboard() {
   const phase1States = states.filter(s => s.phase === 'Phase 1' && s.tier !== 'Unresearched');
   const criticalStates = states.filter(s => s.priority === 'Critical' || s.priority === 'High').slice(0, 5);
 
-  const { resolvedRemediations } = useAuditStore();
+  const { resolvedRemediations, readinessStatusOverrides } = useAuditStore();
   const [selectedState, setSelectedState] = useState<State | null>(null);
 
   // Live Terminal Logs State
@@ -84,9 +92,12 @@ export function Dashboard() {
     return rf.remediations.some(r => !resolvedRemediations.includes(r.id));
   }).length;
 
-  // Calculate readiness completion
+  // Calculate readiness completion (merge store overrides)
   const totalReadiness = readinessItems.length;
-  const completedReadiness = readinessItems.filter(r => r.status === 'Complete').length;
+  const completedReadiness = readinessItems.filter(r => {
+    const effectiveStatus = readinessStatusOverrides[r.id] || r.status;
+    return effectiveStatus === 'Complete';
+  }).length;
   const readinessPercent = Math.round((completedReadiness / totalReadiness) * 100);
 
   return (
@@ -139,16 +150,18 @@ export function Dashboard() {
             <CardBody>
               <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
                 {states.map(s => {
-                  const colorClass = statusDot[s.status] || 'bg-status-unverified border-status-unverified/30 text-status-unverified';
+                  const tileClass = statusTileBg[s.status] || 'bg-slate-400/10 border-slate-400/25 text-slate-500 dark:text-slate-400';
+                  const dotClass = statusDot[s.status] || 'bg-status-unverified';
                   return (
                     <button
                       key={s.id}
                       onClick={() => setSelectedState(s)}
-                      className={`flex flex-col items-center justify-center p-1 h-10 border rounded text-[10px] font-bold transition-all transform active:scale-95 ${colorClass} hover:opacity-80`}
+                      className={`relative flex flex-col items-center justify-center p-1 h-10 border rounded text-[10px] font-bold transition-all transform active:scale-95 ${tileClass} hover:opacity-80`}
                       title={`${s.name} — ${s.status}`}
                     >
+                      <span className={`absolute top-0.5 right-0.5 h-[5px] w-[5px] rounded-full ${dotClass}`} />
                       <span>{s.abbreviation}</span>
-                      <span className="text-[6px] tracking-tight font-normal opacity-75">{s.phase.replace('Phase ', 'P')}</span>
+                      <span className="text-[9px] tracking-tight font-normal opacity-75">{s.phase.replace('Phase ', 'P')}</span>
                     </button>
                   );
                 })}
@@ -225,7 +238,7 @@ export function Dashboard() {
                 </svg>
                 <div className="absolute flex flex-col items-center justify-center font-mono">
                   <span className="text-3xl font-extrabold text-navy dark:text-ice">{readinessPercent}%</span>
-                  <span className="text-[8px] text-grey uppercase tracking-wider font-bold">Readiness</span>
+                  <span className="text-[9px] text-grey uppercase tracking-wider font-bold">Readiness</span>
                 </div>
               </div>
               <ReadinessMeter percent={readinessPercent} className="px-4" />
@@ -255,7 +268,7 @@ export function Dashboard() {
             {/* Console Header */}
             <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center justify-between shrink-0 select-none">
               <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-cyan-500 shrink-0 animate-pulse-beacon" />
+                <span className="h-2.5 w-2.5 rounded-full bg-cyan-500 shrink-0" />
                 <span className="uppercase text-[9px] font-bold text-cyan-400">Live Operation Feed</span>
               </div>
               <Terminal size={12} className="text-slate-500" />
@@ -265,7 +278,7 @@ export function Dashboard() {
             <div className="flex-1 p-3 overflow-y-auto space-y-2 leading-relaxed flex flex-col-reverse justify-end select-text">
               <div className="flex items-center gap-1.5 text-cyan-400 font-bold shrink-0">
                 <span>&gt; SYSTEM ACTIVE</span>
-                <span className="h-3 w-1.5 bg-cyan-400 animate-pulse-beacon block shrink-0" />
+                <span className="h-3 w-1.5 bg-cyan-400 animate-pulse block shrink-0" />
               </div>
               {logs.map((log, index) => (
                 <div key={index} className="text-slate-300 break-words font-mono text-[9px]">
@@ -292,7 +305,7 @@ export function Dashboard() {
             <div className="space-y-2 border-b border-line pb-3">
               <p><span className="font-semibold text-grey block uppercase text-[9px]">Regime Type</span> {selectedState.regimeType}</p>
               <p><span className="font-semibold text-grey block uppercase text-[9px]">Launch Priority</span> {selectedState.priority}</p>
-              {selectedState.regulator && <p><span className="font-semibold text-grey block uppercase text-[9px]">Portal Portal</span> {selectedState.regulator}</p>}
+              {selectedState.regulator && <p><span className="font-semibold text-grey block uppercase text-[9px]">Regulator</span> {selectedState.regulator}</p>}
             </div>
 
             <div className="space-y-2 border-b border-line pb-3">

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useAuditStore, AuditLog } from '@/stores/useAuditStore';
 import { Sliders, Terminal, Trash2, Info } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -11,40 +10,12 @@ const logCategoryBadge: Record<AuditLog['category'], string> = {
 };
 
 export function Settings() {
-  const { auditLogs, clearAuditLogs, addAuditLog } = useAuditStore();
+  const { auditLogs, clearAuditLogs, safeHarborToggles, toggleSafeHarbor } = useAuditStore();
 
-  // Experimental safe harbor settings toggles
-  const [defiExempt, setDefiExempt] = useState<boolean>(false);
-  const [commodityExempt, setCommodityExempt] = useState<boolean>(false);
-  const [micaExempt, setMicaExempt] = useState<boolean>(false);
-
-  const handleToggleDefi = () => {
-    setDefiExempt(prev => {
-      const next = !prev;
-      addAuditLog(`CCO toggled DeFi Safe Harbor model to: ${next ? 'ENABLED' : 'DISABLED'}`, 'Scenario');
-      return next;
-    });
-  };
-
-  const handleToggleCommodity = () => {
-    setCommodityExempt(prev => {
-      const next = !prev;
-      addAuditLog(`CCO toggled Commodity Exemption model to: ${next ? 'ENABLED' : 'DISABLED'}`, 'Scenario');
-      return next;
-    });
-  };
-
-  const handleToggleMica = () => {
-    setMicaExempt(prev => {
-      const next = !prev;
-      addAuditLog(`CCO toggled Liechtenstein MiCA reciprocal alignment model to: ${next ? 'ENABLED' : 'DISABLED'}`, 'Scenario');
-      return next;
-    });
-  };
+  const { defiExempt, commodityExempt, micaExempt } = safeHarborToggles;
 
   const handleClearLogs = () => {
     clearAuditLogs();
-    addAuditLog('CCO executed administrative command: wiped compliance logs history.', 'System');
   };
 
   return (
@@ -78,7 +49,7 @@ export function Settings() {
                 </p>
               </div>
               <button
-                onClick={handleToggleDefi}
+                onClick={() => toggleSafeHarbor('defiExempt')}
                 className={clsx(
                   'w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 outline-none',
                   defiExempt ? 'bg-cyan-500' : 'bg-line'
@@ -97,7 +68,7 @@ export function Settings() {
                 </p>
               </div>
               <button
-                onClick={handleToggleCommodity}
+                onClick={() => toggleSafeHarbor('commodityExempt')}
                 className={clsx(
                   'w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 outline-none',
                   commodityExempt ? 'bg-cyan-500' : 'bg-line'
@@ -116,7 +87,7 @@ export function Settings() {
                 </p>
               </div>
               <button
-                onClick={handleToggleMica}
+                onClick={() => toggleSafeHarbor('micaExempt')}
                 className={clsx(
                   'w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 outline-none',
                   micaExempt ? 'bg-cyan-500' : 'bg-line'
@@ -157,7 +128,7 @@ export function Settings() {
                   <span className="text-slate-600 select-none shrink-0 font-bold font-mono">{log.timestamp}</span>
                   
                   {/* Category Badge */}
-                  <span className={clsx('px-1.5 py-0.5 rounded text-[8px] font-bold border font-sans uppercase shrink-0', logCategoryBadge[log.category])}>
+                  <span className={clsx('px-1.5 py-0.5 rounded text-[9px] font-bold border font-sans uppercase shrink-0', logCategoryBadge[log.category])}>
                     {log.category}
                   </span>
 
@@ -169,7 +140,7 @@ export function Settings() {
           </div>
 
           {/* Footer warning */}
-          <div className="bg-slate-900 px-3 py-2.5 border-t border-slate-800 text-[8px] text-slate-500 leading-normal flex items-start gap-1.5 select-none shrink-0">
+          <div className="bg-slate-900 px-3 py-2.5 border-t border-slate-800 text-[9px] text-slate-500 leading-normal flex items-start gap-1.5 select-none shrink-0">
             <Info size={10} className="shrink-0 text-slate-400 mt-0.5" />
             <span>Audit trail logs records compliance actions during the active session. Cleared logs are permanently purged from session storage.</span>
           </div>

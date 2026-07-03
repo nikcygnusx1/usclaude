@@ -110,7 +110,7 @@ export function ReadinessStack() {
               >
                 <div className="flex justify-between items-start gap-2">
                   <h4 className="font-bold text-xs leading-snug">{item.name}</h4>
-                  <span className={clsx('text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded border', statusColors[item.status])}>
+                  <span className={clsx('text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded border', statusColors[item.status])}>
                     {item.status}
                   </span>
                 </div>
@@ -119,12 +119,12 @@ export function ReadinessStack() {
                 </p>
 
                 {/* Subtask and Assignee readouts */}
-                <div className="pt-2 mt-2 border-t border-line/45 flex justify-between items-center text-[8px] font-mono text-grey leading-none">
+                <div className="pt-2 mt-2 border-t border-line/45 flex justify-between items-center text-[9px] font-mono text-grey leading-none">
                   <div className="flex items-center gap-1">
                     <User size={10} />
                     <span className="font-sans font-semibold uppercase">{assign.owner || 'Unassigned'}</span>
                   </div>
-                  <span>{subtaskCount} / 3 SUBTASKS</span>
+                  <span>{subtaskCount} / {Object.keys(assign.subtasks || {}).length || 3} SUBTASKS</span>
                 </div>
               </div>
             );
@@ -178,7 +178,7 @@ export function ReadinessStack() {
             <div className="space-y-1.5">
               <label className="font-bold text-[9px] uppercase tracking-wider text-grey block">Control Verification Status</label>
               <select
-                value={selectedTask.status}
+                value={readinessStatusOverrides[selectedTask.id] || selectedTask.status}
                 onChange={e => updateReadinessStatus(selectedTask.id, e.target.value as ReadinessStatus)}
                 className="w-full h-8 rounded border border-line bg-ice-soft dark:bg-navy-deep px-2 font-semibold focus:outline-none"
               >

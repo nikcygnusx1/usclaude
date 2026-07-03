@@ -25,8 +25,14 @@ export function CapitalEstimator() {
 
   // Calculations
   const calculations = useMemo(() => {
-    // 1. Licensing Fees (Static $15,000 per state fee average)
-    const fees = activeStates.length * 15000;
+    // 1. Licensing Fees (Parsed from actual state estCost data)
+    const fees = activeStates.reduce((acc, s) => {
+      if (s.estCost) {
+        const parsed = parseInt(s.estCost.replace(/[^0-9]/g, ''));
+        return acc + (isNaN(parsed) ? 15000 : parsed * (s.estCost.includes('K') ? 1000 : 1));
+      }
+      return acc + 15000;
+    }, 0);
 
     // 2. Surety Bonds (Aggregate state surety bond values)
     const totalBonds = activeStates.reduce((acc, s) => {
@@ -47,7 +53,7 @@ export function CapitalEstimator() {
         return Math.max(acc, val);
       }
       return acc;
-    }, 250000); // base base
+    }, 0); // derive purely from state data
 
     const totalReserve = fees + cashCollateral + minNetWorth;
 
@@ -161,7 +167,7 @@ export function CapitalEstimator() {
               <CardBody className="p-3">
                 <span className="text-[9px] uppercase tracking-wider text-grey block">Active Surety Bonds</span>
                 <span className="text-lg font-bold font-mono text-navy dark:text-ice block mt-1">${calculations.totalBonds.toLocaleString()}</span>
-                <span className="text-[8px] text-grey block mt-0.5">Post-leveraged cash: ${(calculations.cashCollateral / 1000).toFixed(0)}K</span>
+                <span className="text-[9px] text-grey block mt-0.5">Post-leveraged cash: ${(calculations.cashCollateral / 1000).toFixed(0)}K</span>
               </CardBody>
             </Card>
             <Card>
@@ -231,7 +237,7 @@ export function CapitalEstimator() {
                 const barHeight = Math.round((data.value / maxVal) * 100);
 
                 return (
-                  <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 group">
+                  <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 group relative">
                     {/* Tooltip on hover */}
                     <span className="absolute -translate-y-12 bg-slate-900 text-slate-100 text-[8px] rounded px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-25 font-mono">
                       ${(data.value / 1000).toFixed(0)}K

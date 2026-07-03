@@ -36,6 +36,10 @@ interface AuditStore {
     id: string,
     status: 'Not Started' | 'In Progress' | 'Counsel Review' | 'Complete'
   ) => void;
+  safeHarborToggles: { defiExempt: boolean; commodityExempt: boolean; micaExempt: boolean };
+  toggleSafeHarbor: (key: 'defiExempt' | 'commodityExempt' | 'micaExempt') => void;
+  evidenceNotes: Record<string, string>;
+  updateEvidenceNote: (rfId: string, note: string) => void;
 }
 
 export const useAuditStore = create<AuditStore>()(
@@ -122,6 +126,31 @@ export const useAuditStore = create<AuditStore>()(
             auditLogs: [newLog, ...state.auditLogs].slice(0, 100),
           };
         }),
+      safeHarborToggles: { defiExempt: false, commodityExempt: false, micaExempt: false },
+      toggleSafeHarbor: (key) =>
+        set((state) => {
+          const next = {
+            ...state.safeHarborToggles,
+            [key]: !state.safeHarborToggles[key],
+          };
+          const labels: Record<string, string> = {
+            defiExempt: 'DeFi Safe Harbor',
+            commodityExempt: 'Commodity Exemption',
+            micaExempt: 'Liechtenstein MiCA reciprocal alignment',
+          };
+          const timestamp = new Date().toLocaleTimeString();
+          const logMsg = `CCO toggled ${labels[key]} model to: ${next[key] ? 'ENABLED' : 'DISABLED'}`;
+          const newLog: AuditLog = { timestamp, message: logMsg, category: 'Scenario' };
+          return {
+            safeHarborToggles: next,
+            auditLogs: [newLog, ...state.auditLogs].slice(0, 100),
+          };
+        }),
+      evidenceNotes: {},
+      updateEvidenceNote: (rfId, note) =>
+        set((state) => ({
+          evidenceNotes: { ...state.evidenceNotes, [rfId]: note },
+        })),
     }),
     {
       name: STORAGE_KEYS.AUDIT || 'lcx-usa-audit-store',
