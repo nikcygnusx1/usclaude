@@ -26,9 +26,12 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
+<<<<<<< HEAD
       gridTemplateColumns: {
         '24': 'repeat(24, minmax(0, 1fr))',
       },
+=======
+>>>>>>> origin/main
     },
   },
   plugins: [],
