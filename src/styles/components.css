@@ -1,0 +1,4 @@
+.panel-collapse { overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; }
+.panel-collapse.collapsed { max-height: 0; opacity: 0; }
+@keyframes slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.animate-slide-in { animation: slide-in 0.3s ease forwards; }

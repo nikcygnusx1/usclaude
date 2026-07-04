@@ -1,0 +1,64 @@
+export const NODE_LAYOUT = {
+  WIDTH: 250,
+  HEIGHT: 100,
+} as const;
+
+export const DASHBOARD = {
+  TOP_STATES_LIMIT: 5,
+  SIMULATED_LOG_COUNT: 5,
+  LOG_INTERVAL_MS: 4000,
+  MAX_SIMULATED_LOGS: 15,
+  MAX_DISPLAY_LOGS: 25,
+} as const;
+
+export const AUDIT = {
+  MAX_LOG_ENTRIES: 100,
+  GENESIS_HASH: '0000000000000000',
+  COPY_FEEDBACK_MS: 2000,
+} as const;
+
+export const HOWEY = {
+  BASE_SCORE: 30,
+  COMMODITY_EXEMPT_DISCOUNT: 0.75,
+  CRITICAL_THRESHOLD: 75,
+  MEDIUM_THRESHOLD: 45,
+  HIGH_RISK_THRESHOLD: 70,
+} as const;
+
+export const CAPITAL = {
+  DEFAULT_LEVERAGE_RATIO: 20,
+  DEFAULT_MONTHLY_BURN: 45000,
+  DEFAULT_LICENSING_FEE: 15000,
+  MAX_LEVERAGE: 100,
+  MIN_LEVERAGE: 10,
+  MIN_BURN: 10000,
+  MAX_BURN: 150000,
+  BURN_STEP: 5000,
+} as const;
+
+export const SEARCH = {
+  MIN_QUERY_LENGTH: 2,
+  MAX_RESULTS: 6,
+  MAX_SEARCH_MATCHES: 5,
+} as const;
+
+export const TIMELINE = {
+  TOTAL_STEPS: 5,
+  TOTAL_MONTHS: 24,
+  MAX_MONTHS: 24,
+} as const;
+
+export const GANTT = {
+  TOTAL_COLUMNS: 24,
+} as const;
+
+export const READINESS = {
+  SEGMENT_COUNT: 10,
+  DEFAULT_SUBTASK_COUNT: 3,
+} as const;
+
+export const BRIEF = {
+  DIGEST_HASH_SUFFIX: 'bcf1c3',
+  DIGEST_HASH_PREFIX: 'sha256_',
+  AUDIT_LOG_ANNEX_LIMIT: 10,
+} as const;

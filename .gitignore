@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Research PDF
+LCX USA.pdf
+scratch_search_pdf.py
+scratch_pdf_*.txt
+
+
