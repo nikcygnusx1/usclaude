@@ -31,7 +31,7 @@ export function BriefGenerator() {
   const [dateOverride, setDateOverride] = useState('');
   
   // Signatory & Stamp configurations
-  const [signatoryName, setSignatoryName] = useState('Nikhil Sharma');
+  const [signatoryName, setSignatoryName] = useState('Chief Compliance Officer, LCX USA');
   const [signatoryTitle, setSignatoryTitle] = useState('Chief Compliance Officer, LCX USA');
   const [coSignerName, setCoSignerName] = useState('');
   const [coSignerTitle, setCoSignerTitle] = useState('');

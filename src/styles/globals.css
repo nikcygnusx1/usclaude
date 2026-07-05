@@ -5,20 +5,20 @@
 
 @layer base {
   body { 
-    @apply bg-ice text-navy font-sans antialiased; 
+    @apply text-navy font-sans antialiased; 
+    background-color: rgb(var(--page-bg));
     transition: background-color 0.3s ease, color 0.3s ease;
   }
   .dark body { 
-    @apply bg-navy-deep text-ice; 
+    @apply text-ice; 
+    background-color: rgb(var(--page-bg));
   }
   
-  /* Apply smooth theme transitions selectively to shells to avoid layout thrashing */
   header, aside, main, button, select, table, th, td {
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   }
 }
 
-/* Premium Scrollbars (Palantir style) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -27,24 +27,23 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.2);
+  background: rgba(var(--grey) / 0.2);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.4);
+  background: rgba(var(--grey) / 0.4);
 }
 
-/* Pulsing LED Status Beacons */
 @keyframes pulse-beacon {
   0%, 100% {
     opacity: 1;
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.4);
+    box-shadow: 0 0 0 0 rgba(163, 32, 53, 0.4);
   }
   50% {
     opacity: 0.6;
     transform: scale(0.9);
-    box-shadow: 0 0 6px 2px rgba(225, 29, 72, 0.2);
+    box-shadow: 0 0 6px 2px rgba(163, 32, 53, 0.2);
   }
 }
 
@@ -52,7 +51,6 @@
   animation: pulse-beacon 2s infinite ease-in-out;
 }
 
-/* Sliding Side Panel Keyframe */
 @keyframes slide-in {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
@@ -61,7 +59,6 @@
   animation: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Table Hover Row Enhancements (BlueprintJS/Palantir density) */
 .premium-table th {
   @apply text-[10px] font-bold uppercase tracking-wider text-grey px-3 py-2 border-b border-line select-none;
 }
@@ -69,10 +66,9 @@
   @apply px-3 py-2 border-b border-line text-xs font-medium text-navy dark:text-ice;
 }
 .premium-table tr:hover td {
-  background-color: rgba(100, 116, 139, 0.04);
+  background-color: rgba(var(--grey) / 0.04);
 }
 
-/* High Fidelity Details Panel */
 .details-list dt {
   @apply text-[10px] font-mono font-bold uppercase tracking-wider text-grey;
 }
@@ -80,7 +76,6 @@
   @apply text-xs font-semibold text-navy dark:text-ice mt-0.5 mb-2.5 last:mb-0;
 }
 
-/* USAMap SVG styling */
 path.state {
   stroke: var(--line) !important;
   stroke-width: 0.75px !important;
@@ -96,5 +91,3 @@ path.state:hover {
   height: auto;
   max-height: 480px;
 }
-
-

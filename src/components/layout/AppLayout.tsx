@@ -17,7 +17,7 @@ export function AppLayout() {
   }, [darkMode]);
 
   return (
-    <div className="flex h-screen flex-col bg-ice text-navy">
+    <div className="flex h-screen flex-col bg-page text-navy">
       <TopNav />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />

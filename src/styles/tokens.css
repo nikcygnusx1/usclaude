@@ -1,34 +1,41 @@
 :root {
-  --navy: 15 23 42;          /* #0f172a */
-  --navy-deep: 2 6 23;       /* #020617 */
-  --ice: 248 250 252;        /* #f8fafc */
-  --ice-soft: 241 245 249;   /* #f1f5f9 */
-  --grey: 100 116 139;       /* #64748b */
-  --grey-light: 203 213 225; /* #cbd5e1 */
-  --grey-dark: 51 65 85;     /* #334155 */
-  --line: 226 232 240;       /* #e2e8f0 */
-  --card: 255 255 255;       /* #ffffff */
-  
-  /* Muted Status Colors - Professional Palettes */
-  --green: 13 148 136;       /* #0d9488 */
-  --amber: 217 119 6;        /* #d97706 */
-  --red: 225 29 72;          /* #e11d48 */
-  --indigo: 79 70 229;       /* #4f46e5 */
+  --navy: 30 39 97;           /* #1E2761 — LCX royal blue */
+  --navy-deep: 20 26 69;      /* #141a45 */
+  --ice: 202 220 252;         /* #CADCFC — periwinkle accent */
+  --ice-soft: 234 241 254;    /* #EAF1FE */
+  --grey: 90 98 114;          /* #5a6272 */
+  --grey-light: 185 198 224;  /* #b9c6e0 */
+  --grey-dark: 51 57 72;      /* #333948 */
+  --line: 185 198 224;        /* #b9c6e0 */
+  --card: 255 255 255;        /* #ffffff */
+  --page-bg: 244 246 251;     /* #f4f6fb */
+
+  --green: 30 122 74;         /* #1e7a4a */
+  --green-bg: 227 244 234;    /* #e3f4ea */
+  --amber: 154 107 0;         /* #9a6b00 */
+  --amber-bg: 253 243 215;    /* #fdf3d7 */
+  --red: 163 32 53;           /* #a32035 */
+  --red-bg: 251 230 234;      /* #fbe6ea */
+  --indigo: 79 70 229;        /* #4f46e5 — kept for pre-launch phase coloring */
 }
 
 .dark {
-  --navy: 248 250 252;       /* #f8fafc */
-  --navy-deep: 9 13 22;      /* #090d16 */
-  --ice: 15 23 42;           /* #0f172a */
-  --ice-soft: 30 41 59;      /* #1e293b */
-  --grey: 148 163 184;       /* #94a3b8 */
-  --grey-light: 71 85 105;   /* #475569 */
-  --grey-dark: 203 213 225;  /* #cbd5e1 */
-  --line: 30 41 59;          /* #1e293b */
-  --card: 15 23 42;          /* Slate-900 (#0f172a) for dark-theme coherence */
+  --navy: 202 220 252;        /* #CADCFC */
+  --navy-deep: 9 14 36;       /* #090e24 */
+  --ice: 20 26 69;            /* #141a45 */
+  --ice-soft: 30 39 97;       /* #1E2761 — softened */
+  --grey: 155 165 185;        /* #9ba5b9 */
+  --grey-light: 51 57 72;     /* #333948 */
+  --grey-dark: 202 220 252;   /* #CADCFC */
+  --line: 30 39 97;           /* #1E2761 */
+  --card: 20 26 69;           /* #141a45 */
+  --page-bg: 9 14 36;         /* #090e24 */
 
-  --green: 45 212 191;       /* #2dd4bf */
-  --amber: 251 191 36;       /* #fbbf24 */
-  --red: 251 113 133;        /* #fb7185 */
-  --indigo: 129 140 248;     /* #818cf8 */
+  --green: 45 180 130;        /* #2db482 */
+  --green-bg: 20 40 30;       /* softened green bg for dark */
+  --amber: 230 160 40;        /* #e6a028 */
+  --amber-bg: 50 40 15;       /* softened amber bg */
+  --red: 220 80 100;          /* #dc5064 */
+  --red-bg: 50 20 25;         /* softened red bg */
+  --indigo: 129 140 248;      /* #818cf8 */
 }
