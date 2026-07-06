@@ -21,10 +21,10 @@ interface PlacedDot extends CompetitorScores {
   postY: number;
 }
 
-const PLOT_LEFT = 90;
-const PLOT_RIGHT = 780;
-const PLOT_TOP = 40;
-const PLOT_BOTTOM = 540;
+const PLOT_LEFT = 100;
+const PLOT_RIGHT = 850;
+const PLOT_TOP = 30;
+const PLOT_BOTTOM = 510;
 const PLOT_WIDTH = PLOT_RIGHT - PLOT_LEFT;
 const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
 const MID_X = PLOT_LEFT + PLOT_WIDTH / 2;
@@ -98,10 +98,6 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
   const gridColor = 'rgb(148 163 184 / 0.2)';
   const axisColor = 'rgb(148 163 184)';
   const labelColor = 'rgb(100 116 139)';
-  const dotFillLight = '#ffffff';
-  const dotFillDark = 'rgb(15 23 42)';
-  const textColorLight = '#1e293b';
-  const textColorDark = '#e2e8f0';
 
   return (
     <div className="space-y-4">
@@ -123,20 +119,11 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
 
       <div className="relative bg-card border border-line rounded-lg overflow-hidden shadow-sm">
         <svg
-          viewBox="0 0 800 600"
+          viewBox="0 0 920 580"
           className="w-full h-auto dark:bg-navy-deep"
           style={{ minHeight: 420 }}
           preserveAspectRatio="xMidYMid meet"
         >
-          <defs>
-            <style>{`
-              .matrix-dot-fill { fill: ${dotFillLight}; }
-              .dark .matrix-dot-fill { fill: ${dotFillDark}; }
-              .matrix-text { fill: ${textColorLight}; font-family: Inter, system-ui, sans-serif; }
-              .dark .matrix-text { fill: ${textColorDark}; }
-            `}</style>
-          </defs>
-
           {tickValues.map(v => {
             const x = toX(v);
             const y = toY(v);
@@ -194,12 +181,12 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
                 </text>
                 <text
                   x={qx}
-                  y={qy + 18}
+                  y={qy + 16}
                   fill={colors.text}
-                  fontSize="9"
+                  fontSize="8"
                   fontWeight="500"
                   fontFamily="Inter, system-ui, sans-serif"
-                  opacity="0.4"
+                  opacity="0.35"
                 >
                   {desc}
                 </text>
@@ -239,6 +226,8 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
             }
 
             const tag = dot.name.length > 12 ? dot.name.slice(0, 11) + '…' : dot.name;
+            const labelX = Math.max(PLOT_LEFT + 18, Math.min(PLOT_RIGHT - 18, dot.x + offset.dx));
+            const labelY = Math.max(PLOT_TOP + 8, Math.min(PLOT_BOTTOM - 4, dot.y + offset.dy));
 
             return (
               <g key={`dot-${dot.id}`} className="cursor-pointer">
@@ -257,8 +246,8 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
                   onClick={() => onCompetitorClick?.(dot.id)}
                 />
                 <text
-                  x={dot.x + offset.dx}
-                  y={dot.y + offset.dy}
+                  x={labelX}
+                  y={labelY}
                   fill="#1e293b"
                   fontSize="10"
                   fontWeight="700"
@@ -280,19 +269,19 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
           })}
 
           <text
-            x={MID_X + PLOT_WIDTH * 0.35} y={PLOT_BOTTOM + 40}
+            x={MID_X + PLOT_WIDTH * 0.25} y={PLOT_BOTTOM + 38}
             textAnchor="middle" fill={labelColor}
-            fontSize="12" fontWeight="600"
+            fontSize="11" fontWeight="600"
             fontFamily="Inter, system-ui, sans-serif" letterSpacing="1"
           >
             REGULATORY COVERAGE INDEX →
           </text>
           <text
-            x={PLOT_LEFT - 55} y={MID_Y}
+            x={PLOT_LEFT - 62} y={MID_Y}
             textAnchor="middle" fill={labelColor}
-            fontSize="12" fontWeight="600"
+            fontSize="11" fontWeight="600"
             fontFamily="Inter, system-ui, sans-serif" letterSpacing="1"
-            transform={`rotate(-90, ${PLOT_LEFT - 55}, ${MID_Y})`}
+            transform={`rotate(-90, ${PLOT_LEFT - 62}, ${MID_Y})`}
           >
             MARKET VOLUME &amp; FOOTHOLD →
           </text>

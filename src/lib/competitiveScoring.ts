@@ -170,8 +170,8 @@ export const QUADRANT_LABELS: Record<string, string> = {
 };
 
 export const QUADRANT_DESCRIPTIONS: Record<string, string> = {
-  leaders: 'Dominant regulatory coverage + maximum market volume. Fortress positions.',
-  regulatoryHedge: 'Strong license portfolios with niche focus. Trust charters over scale.',
-  volumeRiders: 'High volume, aggressive growth, building regulatory coverage from lower base.',
-  outsiders: 'Limited or no US access. Blocked, defunct, or not competing domestically.',
+  leaders: 'Dominant coverage + maximum volume',
+  regulatoryHedge: 'Strong licenses, niche focus',
+  volumeRiders: 'High volume, building coverage',
+  outsiders: 'Limited or no US access',
 };
