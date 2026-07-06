@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import ReactFlow, { Background, Controls, ReactFlowProvider } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -9,7 +9,7 @@ import { toBadgeStatus } from '@/lib/status';
 import { NODE_LAYOUT } from '@/lib/constants';
 import { RegulatoryNode } from '@/types/ontology';
 import { states, products, requirements, licenses, ontologyGraph } from '@/data';
-import { Search, Calendar, Download } from 'lucide-react';
+import { Search, Calendar } from 'lucide-react';
 
 const nodeTypes = { custom: CustomOntologyNode };
 
@@ -24,9 +24,9 @@ const timelineStepLabels: Record<number, { title: string; desc: string }> = {
 const LAYER_PILLS = [
   { id: 'state', label: 'States', count: 50 },
   { id: 'license', label: 'Licenses', count: 6 },
-  { id: 'requirement', label: 'Requirements', count: 10 },
+  { id: 'requirement', label: 'Reqs', count: 10 },
   { id: 'product', label: 'Products', count: 8 },
-  { id: 'competitor', label: 'Competitors', count: 10 },
+  { id: 'competitor', label: 'Comp', count: 10 },
 ];
 
 export function OntologyExplorer() {
@@ -39,7 +39,15 @@ export function OntologyExplorer() {
   const [selectedNode, setSelectedNode] = useState<RegulatoryNode | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [rfInstance, setRfInstance] = useState<any>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [zoomLevel, setZoomLevel] = useState<number>(0.6);
+  const zoomRef = useRef(0.6);
+
+  const handleMove = useCallback((_: any, viewport: any) => {
+    if (Math.abs(zoomRef.current - viewport.zoom) > 0.05) {
+      zoomRef.current = viewport.zoom;
+      setZoomLevel(viewport.zoom);
+    }
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -64,17 +72,21 @@ export function OntologyExplorer() {
   useEffect(() => {
     if (rfInstance && selectedNodeId) {
       const matchNode = rawNodes.find(n => n.id === selectedNodeId);
-      if (matchNode) rfInstance.setCenter(matchNode.position.x + 100, matchNode.position.y + 40, { zoom: 1.1, duration: 800 });
+      if (matchNode) rfInstance.setCenter(matchNode.position.x + 90, matchNode.position.y + 36, { zoom: 1.0, duration: 600 });
     }
   }, [rfInstance, selectedNodeId, rawNodes]);
 
   const nodes = useMemo(() => {
-    const showDetails = zoomLevel >= 0.5;
-    const scale = zoomLevel < 0.5 ? 0.6 : zoomLevel < 1.2 ? 1 : 1.2;
+    const showDetails = zoomLevel >= 0.45;
+    const scale = zoomLevel < 0.45 ? 0.55 : zoomLevel < 1.0 ? 0.85 : 1.0;
     return rawNodes.map(n => ({
       ...n,
       data: { ...(n.data as Record<string, unknown>), showDetails, scale },
-      style: { ...n.style, width: Math.round(NODE_LAYOUT.WIDTH * scale), height: Math.round(NODE_LAYOUT.HEIGHT * scale) },
+      style: {
+        ...n.style,
+        width: Math.round(NODE_LAYOUT.WIDTH * scale),
+        height: Math.round(NODE_LAYOUT.HEIGHT * scale),
+      },
     }));
   }, [rawNodes, zoomLevel]);
 
@@ -102,11 +114,14 @@ export function OntologyExplorer() {
   const displayedNodes = useMemo(() => {
     const activeId = hoveredNodeId || selectedNodeId;
     if (!activeId) return nodes;
-    return nodes.map(n => {
-      const isHighlighted = n.id === activeId;
-      const isDimmed = !highlightedNodeIds.has(n.id);
-      return { ...n, data: { ...(n.data as Record<string, unknown>), isHighlighted, isDimmed } };
-    });
+    return nodes.map(n => ({
+      ...n,
+      data: {
+        ...(n.data as Record<string, unknown>),
+        isHighlighted: n.id === activeId,
+        isDimmed: !highlightedNodeIds.has(n.id),
+      },
+    }));
   }, [hoveredNodeId, selectedNodeId, nodes, highlightedNodeIds]);
 
   const displayedEdges = useMemo(() => {
@@ -115,20 +130,23 @@ export function OntologyExplorer() {
     return edges.map((e: any) => {
       const isPath = highlightedNodeIds.has(e.source) && highlightedNodeIds.has(e.target);
       if (isPath) return { ...e, animated: true, style: { ...e.style, stroke: '#06b6d4', strokeWidth: 2, opacity: 1 }, markerEnd: typeof e.markerEnd === 'object' ? { ...e.markerEnd, color: '#06b6d4' } : '#06b6d4' };
-      return { ...e, animated: false, style: { ...e.style, opacity: 0.08 } };
+      return { ...e, animated: false, style: { ...e.style, opacity: 0.06 } };
     });
   }, [hoveredNodeId, selectedNodeId, edges, highlightedNodeIds]);
 
   const searchMatches = useMemo(() => {
-    if (!searchQuery) return [];
-    return nodes.filter(n => ((n.data as any).node as RegulatoryNode).label.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5);
+    if (!searchQuery || searchQuery.length < 2) return [];
+    return nodes
+      .filter(n => ((n.data as any).node as RegulatoryNode).label.toLowerCase().includes(searchQuery.toLowerCase()))
+      .slice(0, 5);
   }, [searchQuery, nodes]);
 
   const handleSearchSelect = (n: any) => {
+    const rn = (n.data as any).node as RegulatoryNode;
     setSelectedNodeId(n.id);
-    setSelectedNode((n.data as any).node as RegulatoryNode);
+    setSelectedNode(rn);
     setSearchQuery('');
-    if (rfInstance) rfInstance.setCenter(n.position.x + 100, n.position.y + 40, { zoom: 1.1, duration: 800 });
+    if (rfInstance) rfInstance.setCenter(n.position.x + 90, n.position.y + 36, { zoom: 0.9, duration: 500 });
   };
 
   const selectedStateObj = useMemo(() => selectedNode?.type === 'state' ? states.find(s => s.id === selectedNode.id) ?? null : null, [selectedNode]);
@@ -141,23 +159,23 @@ export function OntologyExplorer() {
       <div className="flex h-[calc(100vh-6.5rem)] flex-col text-navy dark:text-ice overflow-hidden">
 
         {/* TOP TOOLBAR */}
-        <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-line bg-card">
-          <h1 className="text-lg font-bold shrink-0">Ontology Graph</h1>
+        <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b border-line bg-card overflow-x-auto">
+          <h1 className="text-sm font-bold shrink-0 hidden sm:block">Ontology Graph</h1>
 
-          <div className="flex-1 max-w-xl mx-auto relative">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-grey" />
+          <div className="flex-1 max-w-md relative">
+            <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-grey" />
             <input
               type="text"
-              placeholder="Search states, products, licenses..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full h-9 pl-8 pr-3 rounded-lg border border-line bg-ice-soft dark:bg-navy-deep text-xs text-navy dark:text-ice focus:outline-none placeholder-grey/50 font-mono"
+              className="w-full h-7 pl-7 pr-2 rounded border border-line bg-ice-soft dark:bg-navy-deep text-[10px] text-navy dark:text-ice focus:outline-none placeholder-grey/50 font-mono"
             />
             {searchMatches.length > 0 && (
-              <div className="absolute top-10 left-0 right-0 z-20 bg-card border border-line rounded-lg shadow-lg overflow-hidden text-xs divide-y divide-line">
+              <div className="absolute top-8 left-0 right-0 z-20 bg-card border border-line rounded shadow-lg overflow-hidden text-[10px] divide-y divide-line">
                 {searchMatches.map(m => (
-                  <button key={m.id} onClick={() => handleSearchSelect(m)} className="w-full px-3 py-2 text-left hover:bg-ice-soft dark:hover:bg-ice-soft/10 block font-mono text-[10px]">
-                    <span className="text-grey uppercase font-sans font-semibold mr-1.5">[{((m.data as any).node as RegulatoryNode).type}]</span>
+                  <button key={m.id} onClick={() => handleSearchSelect(m)} className="w-full px-2.5 py-1.5 text-left hover:bg-ice-soft dark:hover:bg-ice-soft/10 block font-mono">
+                    <span className="text-grey uppercase font-sans font-semibold mr-1">[{((m.data as any).node as RegulatoryNode).type}]</span>
                     {((m.data as any).node as RegulatoryNode).label}
                   </button>
                 ))}
@@ -165,42 +183,25 @@ export function OntologyExplorer() {
             )}
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 flex-shrink-0">
             {LAYER_PILLS.map(p => {
               const active = activeLayers.has(p.id);
               return (
-                <button key={p.id} onClick={() => toggleLayer(p.id)} className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-all ${active ? 'bg-navy dark:bg-ice text-card dark:text-navy border-transparent' : 'border-line text-grey hover:bg-ice-soft'}`}>
-                  <span>{p.label}</span>
-                  <span className={`font-mono text-[9px] ${active ? 'opacity-70' : 'text-grey'}`}>{p.count}</span>
+                <button key={p.id} onClick={() => toggleLayer(p.id)} className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold transition-all ${active ? 'bg-navy dark:bg-ice text-card dark:text-navy border-transparent' : 'border-line text-grey hover:bg-ice-soft'}`}>
+                  <span className="whitespace-nowrap">{p.label}</span>
+                  <span className={`font-mono text-[8px] ${active ? 'opacity-60' : 'text-grey'}`}>{p.count}</span>
                 </button>
               );
             })}
           </div>
 
-          <select value={colorBy} onChange={e => setColorBy(e.target.value as any)} className="h-8 rounded border border-line bg-ice-soft dark:bg-navy-deep px-2 text-[10px] font-semibold focus:outline-none text-navy dark:text-ice shrink-0">
+          <select value={colorBy} onChange={e => setColorBy(e.target.value as any)} className="h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep px-1.5 text-[9px] font-semibold focus:outline-none text-navy dark:text-ice shrink-0">
             <option value="status">Status</option>
             <option value="phase">Phase</option>
             <option value="domain">Domain</option>
           </select>
 
-          <span className="text-[10px] font-mono text-grey shrink-0">{nodeCount}N {edgeCount}E</span>
-
-          <button
-            onClick={async () => {
-              const el = document.querySelector('.react-flow__viewport') as HTMLElement;
-              if (!el) return;
-              const { toPng } = await import('html-to-image');
-              const dataUrl = await toPng(el, { backgroundColor: '#ffffff' });
-              const a = document.createElement('a');
-              a.download = 'lcx-ontology.png';
-              a.href = dataUrl;
-              a.click();
-            }}
-            className="h-7 rounded border border-line px-2 text-[10px] font-semibold text-grey hover:bg-ice-soft shrink-0 flex items-center gap-1"
-            title="Export as PNG"
-          >
-            <Download size={12} /> Export
-          </button>
+          <span className="text-[9px] font-mono text-grey shrink-0 hidden sm:inline">{nodeCount}N {edgeCount}E</span>
         </div>
 
         {/* CANVAS */}
@@ -210,7 +211,7 @@ export function OntologyExplorer() {
             edges={displayedEdges}
             nodeTypes={nodeTypes}
             onInit={setRfInstance}
-            onMove={(_, viewport) => setZoomLevel(viewport.zoom)}
+            onMove={handleMove}
             onNodeClick={(_, node) => {
               const rawNode = (node.data as any).node as RegulatoryNode;
               setSelectedNode(rawNode);
@@ -219,29 +220,27 @@ export function OntologyExplorer() {
             onNodeMouseEnter={(_, node) => setHoveredNodeId(node.id)}
             onNodeMouseLeave={() => setHoveredNodeId(null)}
             fitView
-            defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
             proOptions={{ hideAttribution: true }}
           >
-            <Background gap={16} color="var(--line)" className="opacity-45" />
-            <Controls className="!bg-card !border-line !shadow-sm dark:!bg-navy" />
+            <Background gap={20} color="var(--line)" className="opacity-40" />
+            <Controls className="!bg-card !border-line !shadow-sm dark:!bg-navy" showInteractive={false} />
           </ReactFlow>
 
-          {/* FLOATING TIMELINE PILL */}
-          <div className="absolute bottom-4 right-4 w-72 bg-card border border-line rounded-lg shadow-lg p-3 space-y-2">
-
+          {/* MINIMAP — bottom-left */}
           <OntologyMiniMap nodes={displayedNodes} />
 
-          {/* FLOATING TIMELINE PILL */}
+          {/* TIMELINE PILL — bottom-right */}
+          <div className="absolute bottom-3 right-3 w-64 bg-card/95 backdrop-blur border border-line rounded-lg shadow-md p-2.5 space-y-1.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <Calendar size={13} className="text-cyan-500" />
-                <span className="text-[10px] font-bold font-mono">{timelineStepLabels[timelineStep].title}</span>
+              <div className="flex items-center gap-1">
+                <Calendar size={11} className="text-cyan-500" />
+                <span className="text-[9px] font-bold font-mono">{timelineStepLabels[timelineStep].title}</span>
               </div>
-              <span className="font-mono text-[9px] bg-ice-soft dark:bg-navy-deep border border-line rounded px-1.5 font-bold">{timelineStep}/4</span>
+              <span className="font-mono text-[8px] bg-ice-soft dark:bg-navy-deep border border-line rounded px-1 font-bold">{timelineStep}/4</span>
             </div>
-            <p className="text-[9px] text-grey-dark dark:text-grey-light leading-snug">{timelineStepLabels[timelineStep].desc}</p>
-            <input type="range" min="0" max="4" value={timelineStep} onChange={e => setTimelineStep(parseInt(e.target.value))} className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-line rounded-lg outline-none" />
-            <div className="flex justify-between text-[8px] font-mono text-grey"><span>M0</span><span>M6</span><span>M12</span><span>M18</span><span>CLARITY</span></div>
+            <p className="text-[8px] text-grey leading-snug">{timelineStepLabels[timelineStep].desc}</p>
+            <input type="range" min="0" max="4" value={timelineStep} onChange={e => setTimelineStep(parseInt(e.target.value))} className="w-full accent-cyan-500 cursor-pointer h-1 bg-line rounded outline-none" />
+            <div className="flex justify-between text-[7px] font-mono text-grey"><span>M0</span><span>M6</span><span>M12</span><span>M18</span><span>CLARITY</span></div>
           </div>
         </div>
 
