@@ -1,6 +1,6 @@
 export const NODE_LAYOUT = {
-  WIDTH: 250,
-  HEIGHT: 100,
+  WIDTH: 180,
+  HEIGHT: 72,
 } as const;
 
 export const DASHBOARD = {

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Node, Edge, MarkerType, Position } from 'reactflow';
-import dagre from 'dagre';
+import * as d3 from 'd3';
 import { ontologyGraph } from '@/data/ontology';
 import { RegulatoryNode, Status, Requirement, Product, State } from '@/types/ontology';
 import { Competitor } from '@/types/competitors';
@@ -10,31 +10,48 @@ import { NODE_LAYOUT } from '@/lib/constants';
 import { STATUS_FILL_COLOR, PHASE_COLORS, getDomainColor } from '@/lib/colors';
 import { mapReadinessToStatus, PHASE_STEP_THRESHOLDS, getEffectiveStateStatus, getEffectiveRequirementStatus, getEffectiveHoweyScore } from '@/lib/compliance';
 
-function layout(
+const TYPE_ORDER = ['state', 'license', 'requirement', 'product', 'domain', 'phase', 'competitor'];
+
+function forceLayout(
   nodes: RegulatoryNode[],
   edges: { id: string; source: string; target: string }[],
-  direction: 'LR' | 'TB' = 'LR'
-) {
-  const g = new dagre.graphlib.Graph();
-  g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: direction, nodesep: 36, ranksep: 140 });
-  nodes.forEach(n => g.setNode(n.id, { width: NODE_LAYOUT.WIDTH, height: NODE_LAYOUT.HEIGHT }));
-  edges.forEach(e => g.setEdge(e.source, e.target));
-  dagre.layout(g);
+): Array<RegulatoryNode & { x: number; y: number; w: number }> {
+  if (nodes.length === 0) return [];
+
+  const W = NODE_LAYOUT.WIDTH;
+
+  const simNodes = nodes.map(n => ({ id: n.id, type: n.type })) as d3.SimulationNodeDatum[];
+  const simEdges = edges.map(e => ({ source: e.source, target: e.target }));
+
+  const sim = d3.forceSimulation(simNodes)
+    .force('link', d3.forceLink(simEdges).id((d: any) => d.id).distance(160))
+    .force('charge', d3.forceManyBody().strength(-400))
+    .force('collision', d3.forceCollide().radius(() => 110))
+    .force('x', d3.forceX().x((d: any) => {
+      const idx = TYPE_ORDER.indexOf(d.type);
+      return (idx - 3) * 550;
+    }).strength(0.35))
+    .force('y', d3.forceY().y(0).strength(0.08))
+    .stop();
+
+  for (let i = 0; i < 300; i++) sim.tick();
+
+  const posMap = new Map<string, { x: number; y: number }>();
+  simNodes.forEach((n: any) => posMap.set(n.id, { x: n.x, y: n.y }));
+
   return nodes.map(n => {
-    const pos = g.node(n.id);
-    return { ...n, x: pos?.x ?? 0, y: pos?.y ?? 0, w: NODE_LAYOUT.WIDTH };
+    const pos = posMap.get(n.id) || { x: 0, y: 0 };
+    return { ...n, x: pos.x, y: pos.y, w: W };
   });
 }
 
 interface UseGraphParams {
-  layoutDirection: 'LR' | 'TB';
   colorBy: 'status' | 'phase' | 'domain';
   activeLayers: Set<string>;
   timelineStep: number;
 }
 
-export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep }: UseGraphParams) {
+export function useGraph({ colorBy, activeLayers, timelineStep }: UseGraphParams) {
   const { clarityEnacted, spdiEquivalence } = useFilterStore();
   const { readinessStatusOverrides, safeHarborToggles } = useAuditStore();
   const { commodityExempt, defiExempt, micaExempt } = safeHarborToggles ?? {};
@@ -54,7 +71,7 @@ export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep 
     return { nodes, edges };
   }, [activeLayers, allowedPhases]);
 
-  const laidOut = useMemo(() => layout(filtered.nodes, filtered.edges, layoutDirection), [filtered, layoutDirection]);
+  const laidOut = useMemo(() => forceLayout(filtered.nodes, filtered.edges), [filtered]);
 
   const nodes: Node[] = laidOut.map(n => {
     let nodeStatus = n.status;
@@ -126,10 +143,11 @@ export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep 
         node: { ...n, status: nodeStatus as Status, label, data: nodeData },
         activeColor,
         isPreempted,
-        layoutDirection,
+        showDetails: true,
+        scale: 1,
       },
-      sourcePosition: layoutDirection === 'LR' ? Position.Right : Position.Bottom,
-      targetPosition: layoutDirection === 'LR' ? Position.Left : Position.Top,
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
       style: {
         width: NODE_LAYOUT.WIDTH,
         height: NODE_LAYOUT.HEIGHT,

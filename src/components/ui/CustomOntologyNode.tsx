@@ -21,7 +21,8 @@ interface CustomNodeData {
   isPreempted: boolean;
   isDimmed?: boolean;
   isHighlighted?: boolean;
-  layoutDirection?: 'LR' | 'TB';
+  showDetails?: boolean;
+  scale?: number;
 }
 
 function CardProperties({ node }: { node: RegulatoryNode }) {
@@ -138,10 +139,9 @@ function CardProperties({ node }: { node: RegulatoryNode }) {
 }
 
 export function CustomOntologyNode({ data }: { data: CustomNodeData }) {
-  const { node, activeColor, isPreempted, isDimmed, isHighlighted, layoutDirection } = data;
-
-  const isVertical = layoutDirection === 'TB';
+  const { node, activeColor, isPreempted, isDimmed, isHighlighted, showDetails } = data;
   const IconComponent = icons[node.type] || Shield;
+  const detailVisible = showDetails !== false;
 
   return (
     <div
@@ -156,11 +156,12 @@ export function CustomOntologyNode({ data }: { data: CustomNodeData }) {
       style={{
         width: '100%',
         borderLeftColor: isPreempted ? undefined : activeColor,
+        animation: 'fadeIn 0.4s ease-out',
       }}
     >
       <Handle
         type="target"
-        position={isVertical ? Position.Top : Position.Left}
+        position={Position.Left}
         className="!bg-grey-light !h-1.5 !w-1.5 !border-0 dark:!bg-grey-dark"
       />
 
@@ -202,11 +203,11 @@ export function CustomOntologyNode({ data }: { data: CustomNodeData }) {
         )}
       </div>
 
-      {!isPreempted && <CardProperties node={node} />}
+      {!isPreempted && detailVisible && <CardProperties node={node} />}
 
       <Handle
         type="source"
-        position={isVertical ? Position.Bottom : Position.Right}
+        position={Position.Right}
         className="!bg-grey-light !h-1.5 !w-1.5 !border-0 dark:!bg-grey-dark"
       />
     </div>
