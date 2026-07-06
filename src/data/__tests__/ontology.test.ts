@@ -42,11 +42,27 @@ describe('data integrity', () => {
     }
   });
 
-  it('states not covered by research are marked Unresearched rather than fabricated', () => {
+  it('all 50 states are fully researched — no Unresearched tier remaining', () => {
+    expect(states).toHaveLength(50);
     const unresearched = states.filter(s => s.tier === 'Unresearched');
-    for (const s of unresearched) {
-      expect(s.confidence).toBe('Low');
-      expect(s.status).toBe('Needs verification');
+    expect(unresearched).toHaveLength(0);
+    for (const s of states) {
+      expect(s.tier).not.toBe('Unresearched');
+      expect(s.regimeType).not.toBe('Unknown');
+      expect(s.status).not.toBe('Needs verification');
+      expect(s.priority).not.toBe('Unassessed');
+      expect(s.sourceAuthority).toBeLessThan(5);
+      expect(s.regulator).toBeDefined();
+      expect(s.estCost).toBeDefined();
+      expect(s.estTimeline).toBeDefined();
+    }
+  });
+
+  it('every researched state has a valid regulator name and cost/timeline', () => {
+    for (const s of states) {
+      expect(s.regulator!.length).toBeGreaterThanOrEqual(3);
+      expect(s.estCost!.length).toBeGreaterThan(1);
+      expect(s.estTimeline!.length).toBeGreaterThan(1);
     }
   });
 });

@@ -40,7 +40,7 @@ states.forEach(s => {
   if (s.tier === 'Unresearched') return;
   if (stateLicenseMap[s.id]) {
     edges.push({ id: `${s.id}_requires_${stateLicenseMap[s.id]}`, source: s.id, target: stateLicenseMap[s.id], type: 'requires' });
-  } else if (s.id !== 'MT' && s.id !== 'NH') {
+  } else if (!['MT','NH','ME','NM','SC','SD'].includes(s.id)) {
     edges.push({ id: `${s.id}_requires_MTL`, source: s.id, target: 'MTL', type: 'requires' });
   }
 });
