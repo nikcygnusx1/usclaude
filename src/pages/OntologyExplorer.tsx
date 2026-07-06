@@ -9,16 +9,16 @@ import { toBadgeStatus } from '@/lib/status';
 import { NODE_LAYOUT } from '@/lib/constants';
 import { RegulatoryNode } from '@/types/ontology';
 import { states, products, requirements, licenses, ontologyGraph } from '@/data';
-import { Search, Calendar } from 'lucide-react';
+import { Search, Calendar, Loader2 } from 'lucide-react';
 
 const nodeTypes = { custom: CustomOntologyNode };
 
 const timelineStepLabels: Record<number, { title: string; desc: string }> = {
-  0: { title: 'Month 0 — Setup', desc: 'Pre-launch baseline setup. Corporate structure, BSA/AML programs, and passive investor filings active.' },
-  1: { title: 'Month 6 — Phase 1', desc: 'Non-custodial, crypto-only, institutional wallet trading active in exemption-friendly states.' },
-  2: { title: 'Month 12 — Phase 2', desc: 'Custodial trading and fiat-ramps active. Wyoming SPDI trust charter and sponsor banking clearing ready.' },
-  3: { title: 'Month 18 — Phase 3', desc: 'National retail launch. Multi-state money transmitter licenses and New York BitLicense active.' },
-  4: { title: 'Post-CLARITY Act', desc: 'Federal preemption enacted. State Money Transmission license requirements preempted for spot trading.' },
+  0: { title: 'Month 0 — Setup', desc: 'Pre-launch baseline. Corporate structure, BSA/AML programs, and passive investor filings active.' },
+  1: { title: 'Month 6 — Phase 1', desc: 'Non-custodial, crypto-only wallet trading active in exemption-friendly states.' },
+  2: { title: 'Month 12 — Phase 2', desc: 'Custodial trading and fiat-ramps active. SPDI trust charter and banking clearing ready.' },
+  3: { title: 'Month 18 — Phase 3', desc: 'National retail launch. Multi-state MTLs and New York BitLicense active.' },
+  4: { title: 'Post-CLARITY Act', desc: 'Federal preemption enacted. State MTL requirements preempted for spot trading.' },
 };
 
 const LAYER_PILLS = [
@@ -40,10 +40,11 @@ export function OntologyExplorer() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [rfInstance, setRfInstance] = useState<any>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(0.6);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const zoomRef = useRef(0.6);
 
   const handleMove = useCallback((_: any, viewport: any) => {
-    if (Math.abs(zoomRef.current - viewport.zoom) > 0.05) {
+    if (Math.abs(zoomRef.current - viewport.zoom) > 0.03) {
       zoomRef.current = viewport.zoom;
       setZoomLevel(viewport.zoom);
     }
@@ -70,15 +71,22 @@ export function OntologyExplorer() {
   const { nodes: rawNodes, edges, nodeCount, edgeCount } = useGraph({ colorBy, activeLayers, timelineStep });
 
   useEffect(() => {
-    if (rfInstance && selectedNodeId) {
-      const matchNode = rawNodes.find(n => n.id === selectedNodeId);
-      if (matchNode) rfInstance.setCenter(matchNode.position.x + 90, matchNode.position.y + 36, { zoom: 1.0, duration: 600 });
+    if (rawNodes.length > 0 || nodeCount === 0) {
+      const timer = setTimeout(() => setIsLoading(false), 200);
+      return () => clearTimeout(timer);
     }
-  }, [rfInstance, selectedNodeId, rawNodes]);
+  }, [rawNodes, nodeCount]);
+
+  useEffect(() => {
+    if (rfInstance && selectedNodeId && !isLoading) {
+      const matchNode = rawNodes.find(n => n.id === selectedNodeId);
+      if (matchNode) rfInstance.setCenter(matchNode.position.x + 90, matchNode.position.y + 36, { zoom: 0.9, duration: 500 });
+    }
+  }, [rfInstance, selectedNodeId, rawNodes, isLoading]);
 
   const nodes = useMemo(() => {
-    const showDetails = zoomLevel >= 0.45;
-    const scale = zoomLevel < 0.45 ? 0.55 : zoomLevel < 1.0 ? 0.85 : 1.0;
+    const showDetails = zoomLevel >= 0.4;
+    const scale = zoomLevel < 0.4 ? 0.5 : zoomLevel < 0.9 ? 0.8 : 1.0;
     return rawNodes.map(n => ({
       ...n,
       data: { ...(n.data as Record<string, unknown>), showDetails, scale },
@@ -94,6 +102,7 @@ export function OntologyExplorer() {
     const next = new Set(activeLayers);
     if (next.has(layer)) next.delete(layer); else next.add(layer);
     setActiveLayers(next);
+    setIsLoading(true);
   };
 
   const highlightedNodeIds = useMemo(() => {
@@ -102,12 +111,12 @@ export function OntologyExplorer() {
     const visited = new Set<string>([activeId]);
     const incoming: Record<string, string[]> = {};
     edges.forEach((e: any) => { if (!incoming[e.target]) incoming[e.target] = []; incoming[e.target].push(e.source); });
-    const queueUp = [activeId];
-    while (queueUp.length > 0) { const curr = queueUp.shift()!; (incoming[curr] || []).forEach((p: string) => { if (!visited.has(p)) { visited.add(p); queueUp.push(p); } }); }
+    const qUp = [activeId];
+    while (qUp.length) { const c = qUp.shift()!; (incoming[c] || []).forEach((p: string) => { if (!visited.has(p)) { visited.add(p); qUp.push(p); } }); }
     const outgoing: Record<string, string[]> = {};
     edges.forEach((e: any) => { if (!outgoing[e.source]) outgoing[e.source] = []; outgoing[e.source].push(e.target); });
-    const queueDown = [activeId];
-    while (queueDown.length > 0) { const curr = queueDown.shift()!; (outgoing[curr] || []).forEach((c: string) => { if (!visited.has(c)) { visited.add(c); queueDown.push(c); } }); }
+    const qDown = [activeId];
+    while (qDown.length) { const c = qDown.shift()!; (outgoing[c] || []).forEach((ch: string) => { if (!visited.has(ch)) { visited.add(ch); qDown.push(ch); } }); }
     return visited;
   }, [hoveredNodeId, selectedNodeId, edges]);
 
@@ -118,8 +127,8 @@ export function OntologyExplorer() {
       ...n,
       data: {
         ...(n.data as Record<string, unknown>),
-        isHighlighted: n.id === activeId,
-        isDimmed: !highlightedNodeIds.has(n.id),
+        isHighlighted: n.id === activeId || highlightedNodeIds.has(n.id),
+        isDimmed: !highlightedNodeIds.has(n.id) && n.id !== activeId,
       },
     }));
   }, [hoveredNodeId, selectedNodeId, nodes, highlightedNodeIds]);
@@ -128,17 +137,28 @@ export function OntologyExplorer() {
     const activeId = hoveredNodeId || selectedNodeId;
     if (!activeId) return edges;
     return edges.map((e: any) => {
-      const isPath = highlightedNodeIds.has(e.source) && highlightedNodeIds.has(e.target);
-      if (isPath) return { ...e, animated: true, style: { ...e.style, stroke: '#06b6d4', strokeWidth: 2, opacity: 1 }, markerEnd: typeof e.markerEnd === 'object' ? { ...e.markerEnd, color: '#06b6d4' } : '#06b6d4' };
-      return { ...e, animated: false, style: { ...e.style, opacity: 0.06 } };
+      const onPath = highlightedNodeIds.has(e.source) && highlightedNodeIds.has(e.target);
+      if (onPath) {
+        return {
+          ...e,
+          animated: true,
+          style: {
+            ...e.style,
+            stroke: '#06b6d4',
+            strokeWidth: 2.5,
+            opacity: 1,
+            filter: 'drop-shadow(0 0 4px rgba(6,182,212,0.5))',
+          },
+          markerEnd: typeof e.markerEnd === 'object' ? { ...e.markerEnd, color: '#06b6d4', width: 16, height: 16 } : e.markerEnd,
+        };
+      }
+      return { ...e, animated: false, style: { ...e.style, stroke: '#cbd5e1', opacity: 0.05, strokeWidth: 0.5 } };
     });
   }, [hoveredNodeId, selectedNodeId, edges, highlightedNodeIds]);
 
   const searchMatches = useMemo(() => {
     if (!searchQuery || searchQuery.length < 2) return [];
-    return nodes
-      .filter(n => ((n.data as any).node as RegulatoryNode).label.toLowerCase().includes(searchQuery.toLowerCase()))
-      .slice(0, 5);
+    return nodes.filter(n => ((n.data as any).node as RegulatoryNode).label.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5);
   }, [searchQuery, nodes]);
 
   const handleSearchSelect = (n: any) => {
@@ -160,17 +180,12 @@ export function OntologyExplorer() {
 
         {/* TOP TOOLBAR */}
         <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b border-line bg-card overflow-x-auto">
-          <h1 className="text-sm font-bold shrink-0 hidden sm:block">Ontology Graph</h1>
+          <h1 className="text-sm font-bold shrink-0 hidden sm:block">Ontology</h1>
 
           <div className="flex-1 max-w-md relative">
             <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-grey" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full h-7 pl-7 pr-2 rounded border border-line bg-ice-soft dark:bg-navy-deep text-[10px] text-navy dark:text-ice focus:outline-none placeholder-grey/50 font-mono"
-            />
+            <input type="text" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+              className="w-full h-7 pl-7 pr-2 rounded border border-line bg-ice-soft dark:bg-navy-deep text-[10px] text-navy dark:text-ice focus:outline-none placeholder-grey/50 font-mono" />
             {searchMatches.length > 0 && (
               <div className="absolute top-8 left-0 right-0 z-20 bg-card border border-line rounded shadow-lg overflow-hidden text-[10px] divide-y divide-line">
                 {searchMatches.map(m => (
@@ -187,7 +202,9 @@ export function OntologyExplorer() {
             {LAYER_PILLS.map(p => {
               const active = activeLayers.has(p.id);
               return (
-                <button key={p.id} onClick={() => toggleLayer(p.id)} className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold transition-all ${active ? 'bg-navy dark:bg-ice text-card dark:text-navy border-transparent' : 'border-line text-grey hover:bg-ice-soft'}`}>
+                <button key={p.id} onClick={() => toggleLayer(p.id)}
+                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold transition-all ${
+                    active ? 'bg-navy dark:bg-ice text-card dark:text-navy border-transparent' : 'border-line text-grey hover:bg-ice-soft'}`}>
                   <span className="whitespace-nowrap">{p.label}</span>
                   <span className={`font-mono text-[8px] ${active ? 'opacity-60' : 'text-grey'}`}>{p.count}</span>
                 </button>
@@ -195,7 +212,8 @@ export function OntologyExplorer() {
             })}
           </div>
 
-          <select value={colorBy} onChange={e => setColorBy(e.target.value as any)} className="h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep px-1.5 text-[9px] font-semibold focus:outline-none text-navy dark:text-ice shrink-0">
+          <select value={colorBy} onChange={e => setColorBy(e.target.value as any)}
+            className="h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep px-1.5 text-[9px] font-semibold focus:outline-none text-navy dark:text-ice shrink-0">
             <option value="status">Status</option>
             <option value="phase">Phase</option>
             <option value="domain">Domain</option>
@@ -206,6 +224,15 @@ export function OntologyExplorer() {
 
         {/* CANVAS */}
         <div className="flex-1 min-h-0 relative bg-card">
+          {isLoading && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-card/60 backdrop-blur-sm">
+              <div className="flex items-center gap-2 text-grey text-xs font-mono">
+                <Loader2 size={16} className="animate-spin" />
+                <span>Computing layout...</span>
+              </div>
+            </div>
+          )}
+
           <ReactFlow
             nodes={displayedNodes}
             edges={displayedEdges}
@@ -220,17 +247,18 @@ export function OntologyExplorer() {
             onNodeMouseEnter={(_, node) => setHoveredNodeId(node.id)}
             onNodeMouseLeave={() => setHoveredNodeId(null)}
             fitView
+            fitViewOptions={{ padding: 0.3 }}
             proOptions={{ hideAttribution: true }}
+            minZoom={0.1}
+            maxZoom={2}
           >
             <Background gap={20} color="var(--line)" className="opacity-40" />
-            <Controls className="!bg-card !border-line !shadow-sm dark:!bg-navy" showInteractive={false} />
+            <Controls className="!bg-card !border-line !shadow-sm dark:!bg-navy" />
           </ReactFlow>
 
-          {/* MINIMAP — bottom-left */}
-          <OntologyMiniMap nodes={displayedNodes} />
+          <OntologyMiniMap rawNodes={rawNodes} rfInstance={rfInstance} />
 
-          {/* TIMELINE PILL — bottom-right */}
-          <div className="absolute bottom-3 right-3 w-64 bg-card/95 backdrop-blur border border-line rounded-lg shadow-md p-2.5 space-y-1.5">
+          <div className="absolute bottom-3 right-3 w-60 bg-card/95 backdrop-blur border border-line rounded-lg shadow-md p-2 space-y-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1">
                 <Calendar size={11} className="text-cyan-500" />
@@ -239,7 +267,8 @@ export function OntologyExplorer() {
               <span className="font-mono text-[8px] bg-ice-soft dark:bg-navy-deep border border-line rounded px-1 font-bold">{timelineStep}/4</span>
             </div>
             <p className="text-[8px] text-grey leading-snug">{timelineStepLabels[timelineStep].desc}</p>
-            <input type="range" min="0" max="4" value={timelineStep} onChange={e => setTimelineStep(parseInt(e.target.value))} className="w-full accent-cyan-500 cursor-pointer h-1 bg-line rounded outline-none" />
+            <input type="range" min="0" max="4" value={timelineStep} onChange={e => setTimelineStep(parseInt(e.target.value))}
+              className="w-full accent-cyan-500 cursor-pointer h-1 bg-line rounded outline-none" />
             <div className="flex justify-between text-[7px] font-mono text-grey"><span>M0</span><span>M6</span><span>M12</span><span>M18</span><span>CLARITY</span></div>
           </div>
         </div>
@@ -254,11 +283,11 @@ export function OntologyExplorer() {
               <span className="text-xs rounded-full border border-line px-2.5 py-0.5 uppercase font-mono">{selectedNode.type}</span>
               <span className="text-xs rounded-full border border-line px-2.5 py-0.5 font-mono">{selectedNode.phase}</span>
             </div>
-            {selectedStateObj && (<div className="space-y-3 pt-2"><p className="text-xs">{selectedStateObj.notes}</p><div className="space-y-2 border-t border-line pt-3"><p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Regime Type</span> {selectedStateObj.regimeType}</p>{selectedStateObj.minNetWorth && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Minimum Corporate Net Worth</span> <span className="font-mono text-sm">{selectedStateObj.minNetWorth}</span></p>}{selectedStateObj.suretyBond && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Surety Bond Collateral</span> <span className="font-mono text-sm">{selectedStateObj.suretyBond}</span></p>}{selectedStateObj.sandboxAvailable !== undefined && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Regulatory Sandbox</span> {selectedStateObj.sandboxAvailable ? 'Exemption Available' : 'None'}</p>}{selectedStateObj.estTimeline && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Estimated Pipeline Duration</span> <span className="font-mono">{selectedStateObj.estTimeline}</span></p>}</div></div>)}
-            {selectedProductObj && (<div className="space-y-3 pt-2"><p className="text-xs">{selectedProductObj.description}</p>{selectedProductObj.howeyScore !== undefined && (<div className="bg-ice-soft dark:bg-ice-soft/10 rounded p-3 border border-line text-xs space-y-2"><p className="font-bold flex items-center justify-between"><span>Howey Securities Score:</span><span className="font-mono text-sm">{selectedProductObj.howeyScore}%</span></p>{selectedProductObj.howeyAnalysis && (<div className="space-y-1.5 pt-1 text-[11px] border-t border-line/55 leading-relaxed"><p><strong>Investment:</strong> {selectedProductObj.howeyAnalysis.investmentOfMoney}</p><p><strong>Enterprise:</strong> {selectedProductObj.howeyAnalysis.commonEnterprise}</p><p><strong>Profits:</strong> {selectedProductObj.howeyAnalysis.profitExpectation}</p><p><strong>Efforts:</strong> {selectedProductObj.howeyAnalysis.effortsOfOthers}</p></div>)}</div>)}{selectedProductObj.risks.length > 0 && (<div className="space-y-1.5 border-t border-line pt-3"><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Identified Gating Risks</span><ul className="list-disc list-inside text-xs space-y-1">{selectedProductObj.risks.map((r,i) => <li key={i}>{r}</li>)}</ul></div>)}</div>)}
-            {selectedReqObj && (<div className="space-y-3 pt-2"><div className="space-y-2"><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Domain Classification</span><p className="text-sm font-medium">{selectedReqObj.domain}</p></div><div className="space-y-2 border-t border-line pt-3"><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Requirement Description</span><p className="text-xs leading-relaxed">{selectedReqObj.description}</p></div></div>)}
-            {selectedLicObj && (<div className="space-y-3 pt-2"><div className="space-y-2"><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Issuing Authority</span><p className="text-sm font-medium">{selectedLicObj.issuingAuthority}</p></div><div className="space-y-2 border-t border-line pt-3"><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Exemptions Available</span><ul className="list-disc list-inside text-xs space-y-1">{selectedLicObj.exemptions.map((x,i) => <li key={i}>{x}</li>)}</ul></div></div>)}
-            <div className="pt-2 border-t border-line"><details className="group cursor-pointer"><summary className="text-[10px] font-bold uppercase tracking-wider text-grey select-none list-none flex items-center gap-1.5"><span className="transition-transform group-open:rotate-90">&rarr;</span><span>[Technical Registry Payload]</span></summary><pre className="mt-2 p-2.5 rounded bg-ice-soft dark:bg-navy-deep text-[10px] font-mono overflow-x-auto text-navy dark:text-ice border border-line leading-normal">{JSON.stringify(selectedNode.data || selectedNode, null, 2)}</pre></details></div>
+            {selectedStateObj && (<div className="space-y-3 pt-2"><p className="text-xs">{selectedStateObj.notes}</p><div className="space-y-2 border-t border-line pt-3"><p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Regime Type</span> {selectedStateObj.regimeType}</p>{selectedStateObj.minNetWorth && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Min Net Worth</span> <span className="font-mono text-sm">{selectedStateObj.minNetWorth}</span></p>}{selectedStateObj.suretyBond && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Surety Bond</span> <span className="font-mono text-sm">{selectedStateObj.suretyBond}</span></p>}{selectedStateObj.sandboxAvailable !== undefined && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Sandbox</span> {selectedStateObj.sandboxAvailable ? 'Available' : 'None'}</p>}{selectedStateObj.estTimeline && <p><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Timeline</span> <span className="font-mono">{selectedStateObj.estTimeline}</span></p>}</div></div>)}
+            {selectedProductObj && (<div className="space-y-3 pt-2"><p className="text-xs">{selectedProductObj.description}</p>{selectedProductObj.howeyScore !== undefined && (<div className="bg-ice-soft dark:bg-ice-soft/10 rounded p-3 border border-line text-xs space-y-2"><p className="font-bold flex items-center justify-between"><span>Howey Score:</span><span className="font-mono text-sm">{selectedProductObj.howeyScore}%</span></p>{selectedProductObj.howeyAnalysis && (<div className="space-y-1.5 pt-1 text-[11px] border-t border-line/55 leading-relaxed"><p><strong>Investment:</strong> {selectedProductObj.howeyAnalysis.investmentOfMoney}</p><p><strong>Enterprise:</strong> {selectedProductObj.howeyAnalysis.commonEnterprise}</p><p><strong>Profits:</strong> {selectedProductObj.howeyAnalysis.profitExpectation}</p><p><strong>Efforts:</strong> {selectedProductObj.howeyAnalysis.effortsOfOthers}</p></div>)}</div>)}{selectedProductObj.risks.length > 0 && (<div className="space-y-1.5 border-t border-line pt-3"><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Risks</span><ul className="list-disc list-inside text-xs space-y-1">{selectedProductObj.risks.map((r,i) => <li key={i}>{r}</li>)}</ul></div>)}</div>)}
+            {selectedReqObj && (<div className="space-y-3 pt-2"><div className="space-y-2"><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Domain</span><p className="text-sm font-medium">{selectedReqObj.domain}</p></div><div className="space-y-2 border-t border-line pt-3"><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Description</span><p className="text-xs leading-relaxed">{selectedReqObj.description}</p></div></div>)}
+            {selectedLicObj && (<div className="space-y-3 pt-2"><div className="space-y-2"><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Authority</span><p className="text-sm font-medium">{selectedLicObj.issuingAuthority}</p></div><div className="space-y-2 border-t border-line pt-3"><span className="font-semibold text-xs text-grey uppercase tracking-wider block">Exemptions</span><ul className="list-disc list-inside text-xs space-y-1">{selectedLicObj.exemptions.map((x,i) => <li key={i}>{x}</li>)}</ul></div></div>)}
+            <div className="pt-2 border-t border-line"><details className="group cursor-pointer"><summary className="text-[10px] font-bold uppercase tracking-wider text-grey select-none list-none flex items-center gap-1.5"><span className="transition-transform group-open:rotate-90">&rarr;</span><span>Registry Payload</span></summary><pre className="mt-2 p-2.5 rounded bg-ice-soft dark:bg-navy-deep text-[10px] font-mono overflow-x-auto text-navy dark:text-ice border border-line leading-normal">{JSON.stringify(selectedNode.data || selectedNode, null, 2)}</pre></details></div>
           </div>
         )}
       </InspectorDrawer>

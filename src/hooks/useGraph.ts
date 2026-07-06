@@ -34,7 +34,7 @@ function forceLayout(
     .force('y', d3.forceY().y(0).strength(0.08))
     .stop();
 
-  for (let i = 0; i < 300; i++) sim.tick();
+  for (let i = 0; i < 200; i++) sim.tick();
 
   const posMap = new Map<string, { x: number; y: number }>();
   simNodes.forEach((n: any) => posMap.set(n.id, { x: n.x, y: n.y }));
