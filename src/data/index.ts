@@ -7,5 +7,6 @@ export { phases } from './phases';
 export { ontologyGraph } from './ontology';
 export { readinessItems } from './readiness';
 export { redFlags } from './redFlags';
+export { competitors } from './competitors';
 
 

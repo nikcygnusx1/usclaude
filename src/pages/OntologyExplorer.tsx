@@ -311,6 +311,7 @@ export function OntologyExplorer() {
                   { id: 'license', label: 'Licenses & Permits' },
                   { id: 'requirement', label: 'Gating Requirements' },
                   { id: 'product', label: 'Exchange Products & Assets' },
+                  { id: 'competitor', label: 'Competitor Exchanges' },
                 ].map(l => (
                   <button
                     key={l.id}

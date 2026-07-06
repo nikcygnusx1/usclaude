@@ -3,6 +3,7 @@ import { Node, Edge, MarkerType, Position } from 'reactflow';
 import dagre from 'dagre';
 import { ontologyGraph } from '@/data/ontology';
 import { RegulatoryNode, Status, Requirement, Product, State } from '@/types/ontology';
+import { Competitor } from '@/types/competitors';
 import { useFilterStore } from '@/stores/useFilterStore';
 import { useAuditStore } from '@/stores/useAuditStore';
 import { NODE_LAYOUT } from '@/lib/constants';
@@ -74,6 +75,15 @@ export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep 
         p.howeyScore = getEffectiveHoweyScore(p.howeyScore, true) ?? p.howeyScore;
       }
       nodeData = p;
+    } else if (n.type === 'competitor') {
+      const comp = n.data as Competitor;
+      if (comp.threatLevel === 'Critical' || comp.threatLevel === 'High') {
+        nodeStatus = 'Blocked';
+      } else if (comp.threatLevel === 'Medium') {
+        nodeStatus = 'Conditional';
+      } else if (comp.threatLevel === 'Low' || comp.threatLevel === 'None') {
+        nodeStatus = 'Ready';
+      }
     }
 
     let activeColor = '#64748b';
@@ -92,6 +102,8 @@ export function useGraph({ layoutDirection, colorBy, activeLayers, timelineStep 
         activeColor = getDomainColor('Asset listing and token classification');
       } else if (n.type === 'state') {
         activeColor = getDomainColor('State money transmission and consumer protection');
+      } else if (n.type === 'competitor') {
+        activeColor = '#06b6d4';
       } else {
         activeColor = '#64748b';
       }

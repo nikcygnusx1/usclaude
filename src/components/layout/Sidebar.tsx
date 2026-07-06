@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, GitBranch, Map, Grid3X3, Sliders, Settings, ChevronLeft, ChevronRight, Scale, ToggleLeft, ListTodo, FileText, DollarSign, Calendar, AlertTriangle, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, GitBranch, Map, Grid3X3, Sliders, Settings, ChevronLeft, ChevronRight, Scale, ToggleLeft, ListTodo, FileText, DollarSign, Calendar, AlertTriangle, RotateCcw, Swords } from 'lucide-react';
 import { useUIStore, useFilterStore, useAuditStore } from '@/stores';
 import { redFlags } from '@/data';
 import { domains } from '@/data/domains';
@@ -21,6 +21,7 @@ const navigation = [
   { to: '/roadmap', label: 'Launch Roadmap', icon: Calendar },
   { to: '/red-flags', label: 'Red Flags & Audit', icon: AlertTriangle },
   { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/competition', label: 'Competition Analysis', icon: Swords },
 ];
 
 const statuses: Status[] = ['Ready', 'Conditional', 'Blocked', 'Deferred', 'Needs verification'];

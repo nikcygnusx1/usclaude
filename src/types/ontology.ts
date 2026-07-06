@@ -1,3 +1,5 @@
+import { Competitor } from './competitors';
+
 export type Status = 'Ready' | 'Conditional' | 'Blocked' | 'Needs verification' | 'Deferred';
 export type Phase = 'Pre-launch' | 'Phase 1' | 'Phase 2' | 'Phase 3' | 'Post-CLARITY';
 export type SourceAuthority = 1 | 2 | 3 | 4 | 5;
@@ -71,14 +73,14 @@ export interface ReadinessItem {
 
 
 export interface RegulatoryNode {
-  id: string; type: 'state' | 'license' | 'requirement' | 'product' | 'domain' | 'phase';
+  id: string; type: 'state' | 'license' | 'requirement' | 'product' | 'domain' | 'phase' | 'competitor';
   label: string; status: Status; phase: Phase;
-  data: State | License | Requirement | Product | DomainMeta | PhaseMeta;
+  data: State | License | Requirement | Product | DomainMeta | PhaseMeta | Competitor;
   connections: string[];
 }
 export interface OntologyGraph {
   nodes: RegulatoryNode[];
-  edges: Array<{ id: string; source: string; target: string; type: 'requires' | 'triggers' | 'governs' | 'classifies' | 'enables'; label?: string }>;
+  edges: Array<{ id: string; source: string; target: string; type: 'requires' | 'triggers' | 'governs' | 'classifies' | 'enables' | 'competes_in' | 'holds_license' | 'offers_product' | 'satisfies_requirement'; label?: string }>;
 }
 export interface ScenarioInput { nodeId: string; attribute: 'status' | 'phase'; value: Status | Phase; }
 export interface ScenarioOutput { nodeId: string; attribute: 'status' | 'phase'; currentValue: Status | Phase; projectedValue: Status | Phase; reason: string; }

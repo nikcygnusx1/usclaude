@@ -5,6 +5,7 @@ import { requirements } from './requirements';
 import { products } from './products';
 import { domains } from './domains';
 import { phases } from './phases';
+import { competitors } from './competitors';
 
 const stateNodes: RegulatoryNode[] = states.map(s => ({
   id: s.id, type: 'state', label: s.name, status: s.status, phase: s.phase, data: s, connections: [],
@@ -23,6 +24,10 @@ const domainNodes: RegulatoryNode[] = domains.map(d => ({
 }));
 const phaseNodes: RegulatoryNode[] = phases.map(p => ({
   id: p.id, type: 'phase', label: p.name, status: 'Blocked', phase: p.name, data: p, connections: [],
+}));
+
+const competitorNodes: RegulatoryNode[] = competitors.map(c => ({
+  id: `comp_${c.id}`, type: 'competitor', label: c.name, status: c.status === 'public' ? 'Ready' : c.status === 'private' ? 'Conditional' : 'Blocked', phase: 'Phase 1', data: c, connections: [],
 }));
 
 const edges: OntologyGraph['edges'] = [];
@@ -65,7 +70,42 @@ products.forEach(p => {
   if (phase) edges.push({ id: `${p.id}_triggers_${phase.id}`, source: p.id, target: phase.id, type: 'triggers' });
 });
 
+// Competitor -> state edges (competes_in)
+const stateIdMap = new Map(states.map(s => [s.abbreviation, s.id]));
+competitors.forEach(c => {
+  c.statePresence.forEach(abbr => {
+    const stateId = stateIdMap.get(abbr);
+    if (stateId) {
+      edges.push({
+        id: `comp_${c.id}_competes_${stateId}`,
+        source: `comp_${c.id}`,
+        target: stateId,
+        type: 'competes_in',
+      });
+    }
+  });
+});
+
+// Competitor -> license edges (holds_license)
+const licenseFieldMap: Array<{ field: keyof typeof competitors[number]['licenses']; licenseId: string }> = [
+  { field: 'bitLicense', licenseId: 'NY_BITLICENSE' },
+  { field: 'spdiCharter', licenseId: 'WY_SPDI' },
+  { field: 'finraBD', licenseId: 'MTL' },
+];
+competitors.forEach(c => {
+  licenseFieldMap.forEach(({ field, licenseId }) => {
+    if (c.licenses[field]) {
+      edges.push({
+        id: `comp_${c.id}_holds_${licenseId}`,
+        source: `comp_${c.id}`,
+        target: licenseId,
+        type: 'holds_license',
+      });
+    }
+  });
+});
+
 export const ontologyGraph: OntologyGraph = {
-  nodes: [...stateNodes, ...licenseNodes, ...requirementNodes, ...productNodes, ...domainNodes, ...phaseNodes],
+  nodes: [...stateNodes, ...licenseNodes, ...requirementNodes, ...productNodes, ...domainNodes, ...phaseNodes, ...competitorNodes],
   edges,
 };

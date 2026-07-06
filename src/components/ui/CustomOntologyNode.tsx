@@ -1,6 +1,7 @@
 import { Handle, Position } from 'reactflow';
 import { State, License, Requirement, Product, RegulatoryNode } from '@/types/ontology';
-import { Map, Shield, Key, Coins, Network, Clock } from 'lucide-react';
+import { Competitor } from '@/types/competitors';
+import { Map, Shield, Key, Coins, Network, Clock, Swords } from 'lucide-react';
 import { clsx } from 'clsx';
 import { truncateDomain } from '@/lib/formatting';
 
@@ -11,6 +12,7 @@ const icons: Record<RegulatoryNode['type'], typeof Shield> = {
   product: Coins,
   domain: Network,
   phase: Clock,
+  competitor: Swords,
 };
 
 interface CustomNodeData {
@@ -27,6 +29,33 @@ function CardProperties({ node }: { node: RegulatoryNode }) {
   const isState = node.type === 'state';
   const isProduct = node.type === 'product';
   const isLicense = node.type === 'license';
+  const isCompetitor = node.type === 'competitor';
+
+  if (isCompetitor) {
+    const c = node.data as Competitor;
+    return (
+      <div className="mt-1.5 pt-1.5 border-t border-line/50 space-y-0.5 text-[9px] font-mono leading-tight">
+        <div className="flex justify-between">
+          <span className="text-grey uppercase">Status:</span>
+          <span className="font-bold text-navy-deep dark:text-ice-soft">{c.status}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-grey uppercase">MTL States:</span>
+          <span className="font-bold text-navy-deep dark:text-ice-soft">{c.statePresence.length}/50</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-grey uppercase">Share:</span>
+          <span className="font-bold text-navy-deep dark:text-ice-soft">{c.marketShare > 0 ? `${c.marketShare}%` : '—'}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-grey uppercase">Threat:</span>
+          <span className={c.threatLevel === 'Critical' || c.threatLevel === 'High' ? 'text-status-blocked font-bold' : c.threatLevel === 'Medium' ? 'text-status-conditional font-bold' : 'text-status-ready font-bold'}>
+            {c.threatLevel}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   if (isState) {
     const s = node.data as State;
