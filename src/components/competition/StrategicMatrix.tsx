@@ -1,14 +1,24 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { competitors } from '@/data';
 import { useFilterStore } from '@/stores';
 import {
   computeAllScores,
   QUADRANT_COLORS,
   QUADRANT_LABELS,
-  QUADRANT_DESCRIPTIONS,
   CompetitorScores,
 } from '@/lib/competitiveScoring';
 import { clsx } from 'clsx';
+
+function useIsDark() {
+  const [dark, setDark] = useState(typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+  useEffect(() => {
+    const el = document.documentElement;
+    const obs = new MutationObserver(() => setDark(el.classList.contains('dark')));
+    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
+  return dark;
+}
 
 interface StrategicMatrixProps {
   onCompetitorClick?: (competitorId: string) => void;
@@ -55,6 +65,7 @@ function toY(score: number): number {
 
 export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
   const { clarityEnacted } = useFilterStore();
+  const isDark = useIsDark();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
@@ -98,6 +109,9 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
   const gridColor = 'rgb(148 163 184 / 0.2)';
   const axisColor = 'rgb(148 163 184)';
   const labelColor = 'rgb(100 116 139)';
+  const bgColor = isDark ? 'rgb(15 23 42)' : 'rgb(255 255 255)';
+  const textColor = isDark ? '#e2e8f0' : '#1e293b';
+  const dotFill = isDark ? 'rgb(30 41 59)' : '#ffffff';
 
   return (
     <div className="space-y-4">
@@ -120,10 +134,12 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
       <div className="relative bg-card border border-line rounded-lg overflow-hidden shadow-sm">
         <svg
           viewBox="0 0 920 580"
-          className="w-full h-auto dark:bg-navy-deep"
-          style={{ minHeight: 420 }}
+          className="w-full"
+          style={{ minHeight: 420, background: bgColor }}
           preserveAspectRatio="xMidYMid meet"
         >
+          <rect x="0" y="0" width="920" height="580" fill={bgColor} />
+
           {tickValues.map(v => {
             const x = toX(v);
             const y = toY(v);
@@ -131,12 +147,8 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
               <g key={`grid-${v}`}>
                 <line x1={x} y1={PLOT_TOP} x2={x} y2={PLOT_BOTTOM} stroke={gridColor} strokeWidth="0.5" strokeDasharray="4,4" />
                 <line x1={PLOT_LEFT} y1={y} x2={PLOT_RIGHT} y2={y} stroke={gridColor} strokeWidth="0.5" strokeDasharray="4,4" />
-                <text x={x} y={PLOT_BOTTOM + 18} textAnchor="middle" fill={labelColor} fontSize="10" fontFamily="JetBrains Mono, monospace">
-                  {v}
-                </text>
-                <text x={PLOT_LEFT - 10} y={y + 4} textAnchor="end" fill={labelColor} fontSize="10" fontFamily="JetBrains Mono, monospace">
-                  {v}
-                </text>
+                <text x={x} y={PLOT_BOTTOM + 18} textAnchor="middle" fill={labelColor} fontSize="10" fontFamily="JetBrains Mono, monospace">{v}</text>
+                <text x={PLOT_LEFT - 10} y={y + 4} textAnchor="end" fill={labelColor} fontSize="10" fontFamily="JetBrains Mono, monospace">{v}</text>
               </g>
             );
           })}
@@ -146,21 +158,13 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
 
           {(['leaders', 'regulatoryHedge', 'volumeRiders', 'outsiders'] as const).map(q => {
             const colors = QUADRANT_COLORS[q];
-            const label = QUADRANT_LABELS[q];
-            const desc = QUADRANT_DESCRIPTIONS[q];
-
-            const qx = q === 'leaders' || q === 'regulatoryHedge'
-              ? MID_X + PLOT_WIDTH * 0.08
-              : PLOT_LEFT + PLOT_WIDTH * 0.08;
-            const qy = q === 'leaders' || q === 'volumeRiders'
-              ? PLOT_TOP + PLOT_HEIGHT * 0.25
-              : MID_Y + PLOT_HEIGHT * 0.25;
-
+            const isRight = q === 'leaders' || q === 'regulatoryHedge';
+            const isTop = q === 'leaders' || q === 'volumeRiders';
             return (
               <g key={`quadrant-${q}`}>
                 <rect
-                  x={q === 'leaders' || q === 'regulatoryHedge' ? MID_X : PLOT_LEFT + 2}
-                  y={q === 'leaders' || q === 'volumeRiders' ? PLOT_TOP + 2 : MID_Y}
+                  x={isRight ? MID_X : PLOT_LEFT + 2}
+                  y={isTop ? PLOT_TOP + 2 : MID_Y}
                   width={PLOT_WIDTH / 2 - 4}
                   height={PLOT_HEIGHT / 2 - 4}
                   fill={colors.fill}
@@ -168,27 +172,16 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
                   rx="6"
                 />
                 <text
-                  x={qx}
-                  y={qy}
+                  x={isRight ? MID_X + PLOT_WIDTH * 0.1 : PLOT_LEFT + PLOT_WIDTH * 0.1}
+                  y={isTop ? PLOT_TOP + PLOT_HEIGHT * 0.3 : MID_Y + PLOT_HEIGHT * 0.3}
                   fill={colors.text}
-                  fontSize="15"
+                  fontSize="14"
                   fontWeight="800"
                   fontFamily="Inter, system-ui, sans-serif"
                   letterSpacing="3"
-                  opacity="0.6"
+                  opacity="0.55"
                 >
-                  {label}
-                </text>
-                <text
-                  x={qx}
-                  y={qy + 16}
-                  fill={colors.text}
-                  fontSize="8"
-                  fontWeight="500"
-                  fontFamily="Inter, system-ui, sans-serif"
-                  opacity="0.35"
-                >
-                  {desc}
+                  {QUADRANT_LABELS[q]}
                 </text>
               </g>
             );
@@ -200,65 +193,48 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
             if (Math.abs(dot.x - preX) < 2) return null;
             return (
               <g key={`arrow-${dot.id}`}>
-                <line
-                  x1={preX} y1={preY} x2={dot.x} y2={dot.y}
-                  stroke="rgba(6,182,212,0.35)" strokeWidth="1" strokeDasharray="4,3"
-                />
-                <polygon
-                  points={`${dot.x},${dot.y} ${dot.x - 5},${dot.y - 3} ${dot.x - 5},${dot.y + 3}`}
-                  fill="rgba(6,182,212,0.5)"
-                />
+                <line x1={preX} y1={preY} x2={dot.x} y2={dot.y} stroke="rgba(6,182,212,0.35)" strokeWidth="1" strokeDasharray="4,3" />
+                <polygon points={`${dot.x},${dot.y} ${dot.x - 5},${dot.y - 3} ${dot.x - 5},${dot.y + 3}`} fill="rgba(6,182,212,0.5)" />
               </g>
             );
           })}
 
           {dots.map(dot => {
-            const colors = QUADRANT_COLORS[clarityEnacted ? dot.postClarityQuadrant : dot.quadrant];
-            const radius = Math.max(6, Math.min(16, dot.marketShare * 0.45 + 3));
+            const q = clarityEnacted ? dot.postClarityQuadrant : dot.quadrant;
+            const colors = QUADRANT_COLORS[q];
+            const radius = Math.max(6, Math.min(16, dot.marketShare * 0.4 + 4));
             const isHovered = hoveredId === dot.id;
             const offset = dotLabelOffsets[dot.id] || { dx: 10, dy: -10 };
 
             let dotColor = colors.stroke;
-            if (dot.threatLevel === 'Critical' || dot.threatLevel === 'High') {
-              dotColor = 'rgb(239, 68, 68)';
-            } else if (dot.threatLevel === 'Medium') {
-              dotColor = 'rgb(245, 158, 11)';
-            }
+            if (dot.threatLevel === 'Critical' || dot.threatLevel === 'High') dotColor = 'rgb(239,68,68)';
+            else if (dot.threatLevel === 'Medium') dotColor = 'rgb(245,158,11)';
 
-            const tag = dot.name.length > 12 ? dot.name.slice(0, 11) + '…' : dot.name;
-            const labelX = Math.max(PLOT_LEFT + 18, Math.min(PLOT_RIGHT - 18, dot.x + offset.dx));
-            const labelY = Math.max(PLOT_TOP + 8, Math.min(PLOT_BOTTOM - 4, dot.y + offset.dy));
+            const tag = dot.name.length > 12 ? dot.name.slice(0, 11) + '\u2026' : dot.name;
+            const lx = Math.max(PLOT_LEFT + 15, Math.min(PLOT_RIGHT - 15, dot.x + offset.dx));
+            const ly = Math.max(PLOT_TOP + 8, Math.min(PLOT_BOTTOM - 4, dot.y + offset.dy));
 
             return (
-              <g key={`dot-${dot.id}`} className="cursor-pointer">
-                <circle
-                  cx={dot.x} cy={dot.y} r={radius}
-                  fill={isHovered ? colors.fill : '#fff'}
+              <g key={`dot-${dot.id}`} style={{ cursor: 'pointer' }}>
+                <circle cx={dot.x} cy={dot.y} r={radius}
+                  fill={isHovered ? colors.fill : dotFill}
                   stroke={isHovered ? dotColor : colors.stroke}
                   strokeWidth={isHovered ? 3 : 2}
-                  className="transition-all duration-300"
-                  style={{
-                    opacity: isHovered ? 1 : 0.85,
-                    filter: isHovered ? `drop-shadow(0 0 6px ${dotColor})` : undefined,
-                  }}
+                  style={{ transition: 'all 0.3s', opacity: isHovered ? 1 : 0.85 }}
                   onMouseMove={(e) => handleMouseMove(e, dot)}
                   onMouseLeave={handleMouseLeave}
                   onClick={() => onCompetitorClick?.(dot.id)}
                 />
-                <text
-                  x={labelX}
-                  y={labelY}
-                  fill="#1e293b"
-                  fontSize="10"
-                  fontWeight="700"
+                <text x={lx} y={ly}
+                  fill={textColor}
+                  fontSize="10" fontWeight="700"
                   fontFamily="Inter, system-ui, sans-serif"
-                  className="dark:fill-[#e2e8f0] pointer-events-none select-none"
                   textAnchor="middle"
+                  style={{ pointerEvents: 'none', userSelect: 'none' }}
                 >
                   {tag}
                 </text>
-                <circle
-                  cx={dot.x} cy={dot.y} r={radius + 6}
+                <circle cx={dot.x} cy={dot.y} r={radius + 6}
                   fill="transparent" stroke="transparent"
                   onMouseMove={(e) => handleMouseMove(e, dot)}
                   onMouseLeave={handleMouseLeave}
@@ -268,16 +244,14 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
             );
           })}
 
-          <text
-            x={MID_X + PLOT_WIDTH * 0.25} y={PLOT_BOTTOM + 38}
+          <text x={MID_X} y={PLOT_BOTTOM + 38}
             textAnchor="middle" fill={labelColor}
             fontSize="11" fontWeight="600"
             fontFamily="Inter, system-ui, sans-serif" letterSpacing="1"
           >
             REGULATORY COVERAGE INDEX →
           </text>
-          <text
-            x={PLOT_LEFT - 62} y={MID_Y}
+          <text x={PLOT_LEFT - 62} y={MID_Y}
             textAnchor="middle" fill={labelColor}
             fontSize="11" fontWeight="600"
             fontFamily="Inter, system-ui, sans-serif" letterSpacing="1"
