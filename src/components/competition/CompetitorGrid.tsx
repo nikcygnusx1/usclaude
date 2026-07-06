@@ -81,18 +81,6 @@ function getMTLCount(c: Competitor): number {
   return c.statePresence.length;
 }
 
-function getLegalBadge(c: Competitor): { label: string; severity: 'ready' | 'conditional' | 'blocked' } {
-  const criticalOrCriminal = c.legalHistory.filter(
-    e => e.severity === 'Criminal' || (e.severity === 'Lawsuit' && e.status === 'Ongoing')
-  ).length;
-  const fines = c.legalHistory.filter(e => e.severity === 'Fine' || e.severity === 'Settlement').length;
-
-  if (criticalOrCriminal > 0) return { label: `${criticalOrCriminal} active`, severity: 'blocked' };
-  if (fines >= 3) return { label: `${fines} settled`, severity: 'conditional' };
-  if (fines > 0) return { label: `${fines} resolved`, severity: 'conditional' };
-  return { label: 'Clean', severity: 'ready' };
-}
-
 function resolveSortValue(competitor: Competitor, key: CompetitorSortField): number | string {
   switch (key) {
     case 'name': return competitor.name.toLowerCase();
@@ -319,7 +307,7 @@ export function CompetitorGrid({ onCompetitorClick }: CompetitorGridProps) {
   };
 
   const renderExtraInfo = (c: Competitor) => {
-    const licenseCell = (
+    return (
       <div className="flex items-center gap-3 text-[10px]">
         <span className="flex items-center gap-1">
           {c.licenses.bitLicense ? <Check size={12} className="text-status-ready" /> : <X size={12} className="text-grey" />}
@@ -331,40 +319,16 @@ export function CompetitorGrid({ onCompetitorClick }: CompetitorGridProps) {
             : <X size={12} className="text-grey" />
           }
           <span className={c.licenses.spdiCharter || c.licenses.nyTrustCharter || c.licenses.occTrustCharter ? '' : 'text-grey'}>
-            {c.licenses.occTrustCharter ? 'OCC Trust' :
-             c.licenses.spdiCharter ? 'SPDI' :
-             c.licenses.nyTrustCharter ? 'NY Trust' : 'None'}
+            {c.licenses.occTrustCharter ? 'OCC' : c.licenses.spdiCharter ? 'SPDI' : c.licenses.nyTrustCharter ? 'NY Tr.' : 'None'}
           </span>
         </span>
-        {c.legalHistory.length > 0 && (() => {
-          const badge = getLegalBadge(c);
-          return (
-            <span className="flex items-center gap-1">
-              <AlertTriangle size={12} className={clsx(
-                badge.severity === 'blocked' ? 'text-status-blocked' :
-                badge.severity === 'conditional' ? 'text-status-conditional' :
-                'text-status-ready'
-              )} />
-              <span className={clsx(
-                'font-mono text-[9px]',
-                badge.severity === 'blocked' ? 'text-status-blocked' :
-                badge.severity === 'conditional' ? 'text-status-conditional' :
-                'text-grey'
-              )}>
-                {c.legalHistory.length} events
-              </span>
-            </span>
-          );
-        })()}
-      </div>
-    );
-
-    const insightLine = c.insights.vulnerability.slice(0, 100) + (c.insights.vulnerability.length > 100 ? '…' : '');
-
-    return (
-      <div className="space-y-1">
-        {licenseCell}
-        <p className="text-[9px] text-grey leading-tight">{insightLine}</p>
+        <span className="flex items-center gap-1">
+          <AlertTriangle size={12} className={clsx(
+            c.legalHistory.filter(e => e.severity === 'Criminal' || (e.severity === 'Lawsuit' && e.status === 'Ongoing')).length > 0 ? 'text-status-blocked' :
+            c.legalHistory.length > 0 ? 'text-status-conditional' : 'text-status-ready'
+          )} />
+          <span className="font-mono text-[9px] text-grey">{c.legalHistory.length} events</span>
+        </span>
       </div>
     );
   };
@@ -532,51 +496,8 @@ export function CompetitorGrid({ onCompetitorClick }: CompetitorGridProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <select
-            value={threatFilter}
-            onChange={e => handleFilterChange(setThreatFilter, e.target.value, 'Threat Level')}
-            className="h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep px-2 text-[10px] font-semibold focus:outline-none text-navy dark:text-ice"
-          >
-            <option value="All">All Threat Levels</option>
-            <option value="Critical">Critical</option>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
-            <option value="None">None</option>
-          </select>
-
-          <select
-            value={clarityFilter}
-            onChange={e => handleFilterChange(setClarityFilter, e.target.value, 'CLARITY')}
-            className="h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep px-2 text-[10px] font-semibold focus:outline-none text-navy dark:text-ice"
-          >
-            <option value="All">All CLARITY Positions</option>
-            <option value="strong_beneficiary">Strong Beneficiary</option>
-            <option value="moderate">Moderate</option>
-            <option value="minimal">Minimal</option>
-            <option value="irrelevant">Irrelevant</option>
-            <option value="blocked">Blocked</option>
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={e => handleFilterChange(setStatusFilter, e.target.value, 'Status')}
-            className="h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep px-2 text-[10px] font-semibold focus:outline-none text-navy dark:text-ice"
-          >
-            <option value="All">All Statuses</option>
-            <option value="public">Public</option>
-            <option value="private">Private</option>
-            <option value="blocked">Blocked</option>
-            <option value="defunct">Defunct</option>
-          </select>
-
-          <span className="text-[9px] text-grey ml-1 font-mono">
-            {sorted.length} of {allCompetitors.length}
-          </span>
-        </div>
-
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-navy dark:text-ice">Exchange Comparison</h2>
         <div className="flex items-center gap-1 border border-line rounded-lg overflow-hidden">
           <button
             onClick={() => setViewMode('table')}
@@ -599,6 +520,50 @@ export function CompetitorGrid({ onCompetitorClick }: CompetitorGridProps) {
             <LayoutGrid size={15} />
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <select
+          value={threatFilter}
+          onChange={e => handleFilterChange(setThreatFilter, e.target.value, 'Threat Level')}
+          className="h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep px-2 text-[10px] font-semibold focus:outline-none text-navy dark:text-ice"
+        >
+          <option value="All">All Threat Levels</option>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+          <option value="None">None</option>
+        </select>
+
+        <select
+          value={clarityFilter}
+          onChange={e => handleFilterChange(setClarityFilter, e.target.value, 'CLARITY')}
+          className="h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep px-2 text-[10px] font-semibold focus:outline-none text-navy dark:text-ice"
+        >
+          <option value="All">All CLARITY Positions</option>
+          <option value="strong_beneficiary">Strong Beneficiary</option>
+          <option value="moderate">Moderate</option>
+          <option value="minimal">Minimal</option>
+          <option value="irrelevant">Irrelevant</option>
+          <option value="blocked">Blocked</option>
+        </select>
+
+        <select
+          value={statusFilter}
+          onChange={e => handleFilterChange(setStatusFilter, e.target.value, 'Status')}
+          className="h-7 rounded border border-line bg-ice-soft dark:bg-navy-deep px-2 text-[10px] font-semibold focus:outline-none text-navy dark:text-ice"
+        >
+          <option value="All">All Statuses</option>
+          <option value="public">Public</option>
+          <option value="private">Private</option>
+          <option value="blocked">Blocked</option>
+          <option value="defunct">Defunct</option>
+        </select>
+
+        <span className="text-[9px] text-grey ml-1 font-mono">
+          {sorted.length} of {allCompetitors.length}
+        </span>
       </div>
 
       {viewMode === 'table' ? (

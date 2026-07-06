@@ -76,10 +76,12 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
     }));
   }, [activeScores, clarityEnacted]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGCircleElement>, dot: PlacedDot) => {
-    const svg = (e.target as SVGSVGElement).closest('svg');
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGElement>, dot: PlacedDot) => {
+    const svg = e.currentTarget.closest('svg');
     if (!svg) return;
-    const rect = svg.getBoundingClientRect();
+    const parent = svg.parentElement;
+    if (!parent) return;
+    const rect = parent.getBoundingClientRect();
     setTooltipPos({
       x: e.clientX - rect.left + 16,
       y: e.clientY - rect.top - 10,
@@ -93,9 +95,13 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
 
   const hoveredDot = hoveredId ? dots.find(d => d.id === hoveredId) : null;
 
-  const gridColor = 'var(--line, rgba(148,163,184,0.2))';
-  const axisColor = 'var(--grey, #94a3b8)';
-  const labelColor = 'var(--grey-dark, #64748b)';
+  const gridColor = 'rgb(148 163 184 / 0.2)';
+  const axisColor = 'rgb(148 163 184)';
+  const labelColor = 'rgb(100 116 139)';
+  const dotFillLight = '#ffffff';
+  const dotFillDark = 'rgb(15 23 42)';
+  const textColorLight = '#1e293b';
+  const textColorDark = '#e2e8f0';
 
   return (
     <div className="space-y-4">
@@ -118,10 +124,19 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
       <div className="relative bg-card border border-line rounded-lg overflow-hidden shadow-sm">
         <svg
           viewBox="0 0 800 600"
-          className="w-full h-auto"
+          className="w-full h-auto dark:bg-navy-deep"
           style={{ minHeight: 420 }}
           preserveAspectRatio="xMidYMid meet"
         >
+          <defs>
+            <style>{`
+              .matrix-dot-fill { fill: ${dotFillLight}; }
+              .dark .matrix-dot-fill { fill: ${dotFillDark}; }
+              .matrix-text { fill: ${textColorLight}; font-family: Inter, system-ui, sans-serif; }
+              .dark .matrix-text { fill: ${textColorDark}; }
+            `}</style>
+          </defs>
+
           {tickValues.map(v => {
             const x = toX(v);
             const y = toY(v);
@@ -199,13 +214,8 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
             return (
               <g key={`arrow-${dot.id}`}>
                 <line
-                  x1={preX}
-                  y1={preY}
-                  x2={dot.x}
-                  y2={dot.y}
-                  stroke="rgba(6,182,212,0.35)"
-                  strokeWidth="1"
-                  strokeDasharray="4,3"
+                  x1={preX} y1={preY} x2={dot.x} y2={dot.y}
+                  stroke="rgba(6,182,212,0.35)" strokeWidth="1" strokeDasharray="4,3"
                 />
                 <polygon
                   points={`${dot.x},${dot.y} ${dot.x - 5},${dot.y - 3} ${dot.x - 5},${dot.y + 3}`}
@@ -233,17 +243,13 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
             return (
               <g key={`dot-${dot.id}`} className="cursor-pointer">
                 <circle
-                  cx={dot.x}
-                  cy={dot.y}
-                  r={radius}
-                  fill={isHovered ? colors.fill : 'var(--card, #fff)'}
+                  cx={dot.x} cy={dot.y} r={radius}
+                  fill={isHovered ? colors.fill : '#fff'}
                   stroke={isHovered ? dotColor : colors.stroke}
                   strokeWidth={isHovered ? 3 : 2}
-                  className={clsx(
-                    'transition-all duration-300',
-                    !isHovered && 'opacity-85'
-                  )}
+                  className="transition-all duration-300"
                   style={{
+                    opacity: isHovered ? 1 : 0.85,
                     filter: isHovered ? `drop-shadow(0 0 6px ${dotColor})` : undefined,
                   }}
                   onMouseMove={(e) => handleMouseMove(e, dot)}
@@ -253,21 +259,18 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
                 <text
                   x={dot.x + offset.dx}
                   y={dot.y + offset.dy}
-                  fill="var(--navy, #1e293b)"
+                  fill="#1e293b"
                   fontSize="10"
                   fontWeight="700"
                   fontFamily="Inter, system-ui, sans-serif"
-                  className="dark:fill-ice pointer-events-none select-none"
+                  className="dark:fill-[#e2e8f0] pointer-events-none select-none"
                   textAnchor="middle"
                 >
                   {tag}
                 </text>
                 <circle
-                  cx={dot.x}
-                  cy={dot.y}
-                  r={radius + 6}
-                  fill="transparent"
-                  stroke="transparent"
+                  cx={dot.x} cy={dot.y} r={radius + 6}
+                  fill="transparent" stroke="transparent"
                   onMouseMove={(e) => handleMouseMove(e, dot)}
                   onMouseLeave={handleMouseLeave}
                   onClick={() => onCompetitorClick?.(dot.id)}
@@ -277,26 +280,18 @@ export function StrategicMatrix({ onCompetitorClick }: StrategicMatrixProps) {
           })}
 
           <text
-            x={MID_X + PLOT_WIDTH * 0.35}
-            y={PLOT_BOTTOM + 40}
-            textAnchor="middle"
-            fill={labelColor}
-            fontSize="12"
-            fontWeight="600"
-            fontFamily="Inter, system-ui, sans-serif"
-            letterSpacing="1"
+            x={MID_X + PLOT_WIDTH * 0.35} y={PLOT_BOTTOM + 40}
+            textAnchor="middle" fill={labelColor}
+            fontSize="12" fontWeight="600"
+            fontFamily="Inter, system-ui, sans-serif" letterSpacing="1"
           >
             REGULATORY COVERAGE INDEX →
           </text>
           <text
-            x={PLOT_LEFT - 55}
-            y={MID_Y}
-            textAnchor="middle"
-            fill={labelColor}
-            fontSize="12"
-            fontWeight="600"
-            fontFamily="Inter, system-ui, sans-serif"
-            letterSpacing="1"
+            x={PLOT_LEFT - 55} y={MID_Y}
+            textAnchor="middle" fill={labelColor}
+            fontSize="12" fontWeight="600"
+            fontFamily="Inter, system-ui, sans-serif" letterSpacing="1"
             transform={`rotate(-90, ${PLOT_LEFT - 55}, ${MID_Y})`}
           >
             MARKET VOLUME &amp; FOOTHOLD →
