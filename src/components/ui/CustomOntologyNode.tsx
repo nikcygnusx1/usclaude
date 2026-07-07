@@ -84,20 +84,26 @@ function CardProperties({ node }: { node: RegulatoryNode }) {
     const p = node.data as Product;
     return (
       <div className="mt-1.5 pt-1.5 border-t border-line/50 space-y-0.5 text-[9px] font-mono leading-tight">
-        <div className="flex justify-between">
-          <span className="text-grey uppercase">Category:</span>
-          <span className="font-bold text-navy-deep dark:text-ice-soft">{p.category}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-grey uppercase">Howey Risk:</span>
-          <span className={p.howeyScore !== undefined && p.howeyScore >= 70 ? 'text-status-blocked font-bold' : p.howeyScore !== undefined && p.howeyScore >= 40 ? 'text-status-conditional font-bold' : 'text-status-ready font-bold'}>
-            {p.howeyScore !== undefined ? `${p.howeyScore}%` : 'N/A'}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-grey uppercase">Gated Rules:</span>
-          <span className="font-bold text-navy-deep dark:text-ice-soft">{p.requirements.length}</span>
-        </div>
+        {p.category && (
+          <div className="flex justify-between">
+            <span className="text-grey uppercase">Category:</span>
+            <span className="font-bold text-navy-deep dark:text-ice-soft">{p.category}</span>
+          </div>
+        )}
+        {p.howeyScore !== undefined && (
+          <div className="flex justify-between">
+            <span className="text-grey uppercase">Howey Risk:</span>
+            <span className={p.howeyScore >= 70 ? 'text-status-blocked font-bold' : p.howeyScore >= 40 ? 'text-status-conditional font-bold' : 'text-status-ready font-bold'}>
+              {p.howeyScore}%
+            </span>
+          </div>
+        )}
+        {p.requirements && (
+          <div className="flex justify-between">
+            <span className="text-grey uppercase">Gated Rules:</span>
+            <span className="font-bold text-navy-deep dark:text-ice-soft">{p.requirements.length}</span>
+          </div>
+        )}
       </div>
     );
   }
