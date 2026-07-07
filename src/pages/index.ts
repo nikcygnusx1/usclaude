@@ -12,3 +12,4 @@ export { CapitalEstimator } from './CapitalEstimator';
 export { Roadmap } from './Roadmap';
 export { RedFlags } from './RedFlags';
 export { CompetitionAnalysis } from './CompetitionAnalysis';
+export { ProductIntelligence } from './ProductIntelligence';

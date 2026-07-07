@@ -6,6 +6,7 @@ import { products } from './products';
 import { domains } from './domains';
 import { phases } from './phases';
 import { competitors } from './competitors';
+import { productCatalog } from './productCatalog';
 
 const stateNodes: RegulatoryNode[] = states.map(s => ({
   id: s.id, type: 'state', label: s.name, status: s.status, phase: s.phase, data: s, connections: [],
@@ -28,6 +29,10 @@ const phaseNodes: RegulatoryNode[] = phases.map(p => ({
 
 const competitorNodes: RegulatoryNode[] = competitors.map(c => ({
   id: `comp_${c.id}`, type: 'competitor', label: c.name, status: c.status === 'public' ? 'Ready' : c.status === 'private' ? 'Conditional' : 'Blocked', phase: 'Phase 1', data: c, connections: [],
+}));
+
+const productIntelNodes: RegulatoryNode[] = productCatalog.map(p => ({
+  id: `pi_${p.id}`, type: 'product', label: p.name, status: p.currentStatus === 'live' ? 'Ready' : p.currentStatus === 'building' ? 'Conditional' : 'Blocked', phase: 'Phase 1', data: { name: p.name, category: p.category, priorityTier: p.priorityTier } as any, connections: [],
 }));
 
 const edges: OntologyGraph['edges'] = [];
@@ -106,6 +111,6 @@ competitors.forEach(c => {
 });
 
 export const ontologyGraph: OntologyGraph = {
-  nodes: [...stateNodes, ...licenseNodes, ...requirementNodes, ...productNodes, ...domainNodes, ...phaseNodes, ...competitorNodes],
+  nodes: [...stateNodes, ...licenseNodes, ...requirementNodes, ...productNodes, ...domainNodes, ...phaseNodes, ...competitorNodes, ...productIntelNodes],
   edges,
 };

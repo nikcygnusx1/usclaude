@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { states, licenses, competitors, ontologyGraph } from '@/data';
 
 describe('competitor data integrity', () => {
-  it('has 10 competitor profiles', () => {
-    expect(competitors).toHaveLength(10);
+  it('has 21 competitor profiles (10 original + 11 institutional)', () => {
+    expect(competitors).toHaveLength(21);
     const ids = new Set(competitors.map(c => c.id));
-    expect(ids.size).toBe(10);
+    expect(ids.size).toBe(21);
   });
 
   it('every competitor statePresence references a valid state abbreviation', () => {

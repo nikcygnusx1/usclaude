@@ -8,5 +8,7 @@ export { ontologyGraph } from './ontology';
 export { readinessItems } from './readiness';
 export { redFlags } from './redFlags';
 export { competitors } from './competitors';
+export { productCatalog } from './productCatalog';
+export { competitorProductMap, competitorsOfferingProduct, findWhiteSpaceProducts } from './competitorProducts';
 
 

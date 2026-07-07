@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '@/components/layout';
-import { Dashboard, OntologyExplorer, StateMap, ProductMatrix, Simulator, Settings, HoweyCalculator, ScenarioPlanner, ReadinessStack, BriefGenerator, CapitalEstimator, Roadmap, RedFlags, CompetitionAnalysis } from '@/pages';
+import { Dashboard, OntologyExplorer, StateMap, ProductMatrix, Simulator, Settings, HoweyCalculator, ScenarioPlanner, ReadinessStack, BriefGenerator, CapitalEstimator, Roadmap, RedFlags, CompetitionAnalysis, ProductIntelligence } from '@/pages';
 
 export const router = createBrowserRouter([
   {
@@ -21,6 +21,7 @@ export const router = createBrowserRouter([
       { path: 'red-flags', element: <RedFlags /> },
       { path: 'settings', element: <Settings /> },
       { path: 'competition', element: <CompetitionAnalysis /> },
+      { path: 'product-intel', element: <ProductIntelligence /> },
     ],
   },
 ]);
